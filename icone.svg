@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fundo do ícone (Azul muito claro) -->
+  <rect width="512" height="512" rx="110" fill="#f0f8ff" />
+  
+  <!-- Bolha Laranja e Brilho -->
+  <circle cx="200" cy="200" r="130" fill="#FF5733" />
+  <circle cx="150" cy="150" r="35" fill="#ffffff" opacity="0.7" />
+  
+  <!-- Bolha Azul e Brilho -->
+  <circle cx="360" cy="340" r="110" fill="#3380FF" />
+  <circle cx="320" cy="300" r="30" fill="#ffffff" opacity="0.7" />
+  
+  <!-- Bolha Rosa Pequena -->
+  <circle cx="140" cy="400" r="60" fill="#FF33A8" />
+  <circle cx="120" cy="380" r="15" fill="#ffffff" opacity="0.7" />
+  
+  <!-- Bolha Amarela Pequena -->
+  <circle cx="400" cy="140" r="50" fill="#FFC300" />
+  <circle cx="385" cy="125" r="12" fill="#ffffff" opacity="0.7" />
+</svg>
