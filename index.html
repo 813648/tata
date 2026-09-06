@@ -574,429 +574,138 @@
         }
 
         function desenharPortaEscondida(p, r, agora) {
-            const abertura = Math.max(0, Math.min(1,p.abertura));
-            const centroY = altura * 0.56;
-            const portaW = r * 1.48;
-            const portaH = r * 2.05;
-            const topo = centroY - portaH/2;
-            const fundo = centroY + portaH/2;
-            const pulsar = 1 + Math.sin(agora*0.004 + p.fase)*0.012;
-            const animalY = fundo - r*0.56 - p.salto*r*0.30;
+            // Nova abordagem: duas folhas de uma porta entreaberta.
+            // Não há rotação da porta. Ao tocar, as duas folhas afastam-se
+            // suavemente para os lados e revelam o animal no interior.
+            const abertura = Math.max(0, Math.min(1, p.abertura));
+            const centroY = altura * 0.50;
+            const portaW = Math.min(largura * 0.58, r * 2.35);
+            const portaH = Math.min(altura * 0.66, r * 2.55);
+            const topo = centroY - portaH / 2;
+            const fundo = centroY + portaH / 2;
+            const moldura = Math.max(10, r * 0.075);
+            const folhaW = portaW * 0.48;
+            const separacao = portaW * 0.015 + abertura * portaW * 0.42;
+            const escala = 1 + Math.sin(agora * 0.004 + p.fase) * 0.012;
+            const animalEscala = 0.48 + abertura * 0.62 + p.salto * 0.10;
+            const animalY = fundo - r * 0.52 - p.salto * r * 0.28;
 
-            // Aura discreta, mantendo a linguagem visual dos restantes jogos.
+            // Chão luminoso — dá ao animal um lugar para aparecer e evita
+            // que a cena fique visualmente perdida no fundo escuro do Portal.
             ctx.save();
-            ctx.globalAlpha = 0.22 + abertura*0.16;
-            ctx.shadowBlur = 32;
+            const gradChao = ctx.createRadialGradient(p.x, fundo, 2, p.x, fundo, portaW * 0.72);
+            gradChao.addColorStop(0, p.animal.cor + 'AA');
+            gradChao.addColorStop(0.55, p.animal.cor + '35');
+            gradChao.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradChao;
+            ctx.beginPath(); ctx.ellipse(p.x, fundo + r*0.12, portaW*0.68, r*0.30, 0, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+
+            // Moldura colorida da porta.
+            ctx.save();
+            ctx.shadowBlur = 28;
             ctx.shadowColor = p.animal.cor;
             ctx.fillStyle = p.animal.cor;
-            ctx.beginPath(); ctx.ellipse(p.x, centroY, portaW*0.72, portaH*0.66, 0, 0, Math.PI*2); ctx.fill();
-            ctx.restore();
-
-            // Interior escuro: dá profundidade à porta entreaberta.
-            ctx.save();
-            ctx.fillStyle = '#090A16';
-            ctx.shadowBlur = 24; ctx.shadowColor = p.animal.cor;
+            ctx.globalAlpha = 0.95;
             ctx.beginPath();
-            ctx.roundRect(p.x-portaW/2, topo, portaW, portaH, r*0.22);
+            ctx.roundRect(p.x - portaW/2 - moldura, topo - moldura, portaW + moldura*2, portaH + moldura*2, r*0.22);
             ctx.fill();
-            ctx.lineWidth = r*0.055;
-            ctx.strokeStyle = p.animal.cor;
-            ctx.stroke();
             ctx.restore();
 
-            // Animal dentro da porta: cresce quando a descoberta acontece.
-            if (abertura > 0.03) {
-                const escalaAnimal = 0.52 + abertura*0.55 + p.salto*0.12;
+            // Interior: permanece visível pela fresta mesmo antes de abrir.
+            ctx.save();
+            ctx.fillStyle = '#05060D';
+            ctx.beginPath();
+            ctx.roundRect(p.x-portaW/2, topo, portaW, portaH, r*0.17);
+            ctx.fill();
+            ctx.restore();
+
+            // Animal: desenhado ANTES das folhas, mas só fica progressivamente
+            // visível através da abertura central. Quando totalmente aberto,
+            // fica integralmente à frente do interior.
+            if (abertura > 0.015) {
                 ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(p.x-portaW/2, topo, portaW, portaH, r*0.17);
+                ctx.clip();
                 ctx.translate(p.x, animalY);
-                ctx.scale(escalaAnimal*pulsar, escalaAnimal*pulsar);
-                ctx.globalAlpha = Math.min(1, 0.25 + abertura*0.9);
-                desenharIlustracaoAnimal(0,0,p.animal.tipo,r*0.70);
-                ctx.globalAlpha = 1;
+                ctx.scale(animalEscala*escala, animalEscala*escala);
+                ctx.globalAlpha = Math.min(1, 0.18 + abertura*1.05);
+                desenharIlustracaoAnimal(0, 0, p.animal.tipo, r*0.72);
                 ctx.restore();
             }
 
-            // Folha da porta: gira/abre para o lado, como uma porta real.
-            ctx.save();
-            ctx.translate(p.x-portaW*0.04, centroY);
-            const rot = -abertura*0.78;
-            ctx.rotate(rot);
-            ctx.translate(-portaW*0.50,0);
-            const grad = ctx.createLinearGradient(0,-portaH/2,portaW,portaH/2);
-            grad.addColorStop(0, p.animal.cor);
-            grad.addColorStop(0.55, 'rgba(255,255,255,0.28)');
-            grad.addColorStop(1, p.animal.cor);
-            ctx.fillStyle=grad;
-            ctx.shadowBlur=18; ctx.shadowColor='rgba(0,0,0,0.45)';
-            ctx.beginPath(); ctx.roundRect(0,-portaH/2,portaW*0.56,portaH,r*0.18); ctx.fill();
-            ctx.shadowBlur=0;
-            ctx.lineWidth=r*0.035; ctx.strokeStyle='rgba(255,255,255,0.52)'; ctx.stroke();
-            // ripas da porta
-            ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=Math.max(2,r*0.018);
-            for(let i=1;i<5;i++) { const xx=portaW*0.56*i/5; ctx.beginPath(); ctx.moveTo(xx,-portaH*0.42); ctx.lineTo(xx,portaH*0.42); ctx.stroke(); }
-            // maçaneta
-            ctx.fillStyle='#FFD54F'; ctx.shadowBlur=10; ctx.shadowColor='#FFD54F';
-            ctx.beginPath(); ctx.arc(portaW*0.47, r*0.05, r*0.075,0,Math.PI*2); ctx.fill();
-            ctx.restore();
-
-            // Olhos: a pista principal antes de abrir.
-            if (abertura < 0.55) {
-                const olhoY = centroY - r*0.34;
-                const pisca = Math.sin(agora*0.0027 + p.fase) > 0.992;
+            // Duas folhas: fechadas deixam apenas uma pequena fresta; abertas
+            // deslizam para os lados. Isto substitui completamente a rotação.
+            function desenharFolha(lado) {
+                const desloc = lado * (separacao * 0.50);
+                const cx = p.x + lado * (portaW*0.25 + separacao*0.22);
                 ctx.save();
-                ctx.shadowBlur=14; ctx.shadowColor='#FFF176';
-                ctx.fillStyle='#FFFDF2';
-                ctx.beginPath(); ctx.ellipse(p.x-r*0.19,olhoY,r*0.14,r*0.12,0,0,Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(p.x+r*0.19,olhoY,r*0.14,r*0.12,0,0,Math.PI*2); ctx.fill();
-                ctx.shadowBlur=0; ctx.fillStyle='#263238';
-                if (!pisca) {
-                    ctx.beginPath(); ctx.arc(p.x-r*0.19,olhoY,r*0.055,0,Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(p.x+r*0.19,olhoY,r*0.055,0,Math.PI*2); ctx.fill();
-                } else {
-                    ctx.fillRect(p.x-r*0.28,olhoY-2,r*0.18,4); ctx.fillRect(p.x+r*0.10,olhoY-2,r*0.18,4);
+                ctx.translate(cx + desloc, centroY);
+                const grad = ctx.createLinearGradient(-folhaW/2, 0, folhaW/2, 0);
+                grad.addColorStop(0, lado < 0 ? p.animal.cor : 'rgba(255,255,255,0.20)');
+                grad.addColorStop(0.50, p.animal.cor);
+                grad.addColorStop(1, lado < 0 ? 'rgba(255,255,255,0.20)' : p.animal.cor);
+                ctx.fillStyle = grad;
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = 'rgba(0,0,0,0.55)';
+                ctx.beginPath();
+                ctx.roundRect(-folhaW/2, -portaH/2, folhaW, portaH, r*0.13);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // brilho e ripas
+                ctx.lineWidth = Math.max(2, r*0.018);
+                ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+                ctx.stroke();
+                ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+                ctx.lineWidth = Math.max(2, r*0.012);
+                for (let i=1;i<5;i++) {
+                    const xx = -folhaW/2 + folhaW*i/5;
+                    ctx.beginPath(); ctx.moveTo(xx,-portaH*0.40); ctx.lineTo(xx,portaH*0.40); ctx.stroke();
                 }
-                ctx.restore();
-            }
 
-            if (abertura > 0.55) {
-                ctx.save();
-                ctx.font=`bold ${Math.max(20,Math.min(32,r*0.34))}px sans-serif`;
-                ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.fillStyle='rgba(255,255,255,0.96)'; ctx.shadowBlur=9; ctx.shadowColor='#000';
-                ctx.fillText(p.animal.nome,p.x,topo-r*0.20);
-                ctx.restore();
-            }
-        }
-
-        /* =================================================================
-           LÓGICA: ENCAIXE MÁGICO
-           ================================================================= */
-        function reconfigurarEncaixes() {
-            const tam = Math.min(largura, altura) * 0.12;
-            const ladoEsquerdoX = largura * 0.28;
-            const ladoDireitoX = largura * 0.75;
-
-            if (pecaPaiEncaixe) {
-                pecaPaiEncaixe.tamanho = tam;
-                pecaPaiEncaixe.startX = ladoDireitoX;
-                pecaPaiEncaixe.startY = altura * 0.5;
-                if (!pecaPaiEncaixe.arrastando) {
-                    pecaPaiEncaixe.x = pecaPaiEncaixe.startX;
-                    pecaPaiEncaixe.y = pecaPaiEncaixe.startY;
-                }
-            }
-
-            if (encaixes.length === 2) {
-                encaixes[0].x = ladoEsquerdoX;
-                encaixes[0].y = altura * 0.3;
-                encaixes[0].tamanho = tam;
-
-                encaixes[1].x = ladoEsquerdoX;
-                encaixes[1].y = altura * 0.7;
-                encaixes[1].tamanho = tam;
-            }
-        }
-
-        function iniciarNovaSequenciaEncaixe() {
-            emTransicaoEncaixe = false;
-            const formaCerta = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
-            let formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
-            while (formaErrada === formaCerta) {
-                formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
-            }
-
-            const corPeca = CORES_ENCAIXE[Math.floor(Math.random() * CORES_ENCAIXE.length)];
-            const posicaoCerta = Math.random() < 0.5 ? 0 : 1;
-
-            encaixes = [
-                { tipo: posicaoCerta === 0 ? formaCerta : formaErrada, eCorreta: posicaoCerta === 0 },
-                { tipo: posicaoCerta === 1 ? formaCerta : formaErrada, eCorreta: posicaoCerta === 1 }
-            ];
-
-            pecaPaiEncaixe = {
-                tipo: formaCerta,
-                cor: corPeca,
-                arrastando: false
-            };
-
-            reconfigurarEncaixes();
-        }
-
-        /* =================================================================
-           INSTRUMENTOS MÁGICOS
-           ================================================================= */
-        const TIPOS_INSTRUMENTOS = ['xilofone', 'tambor', 'sino', 'maracas'];
-        const CORES_INSTRUMENTOS = ['#FF8A65', '#64B5F6', '#81C784', '#FFD54F'];
-
-        function reconfigurarInstrumentos() {
-            const portrait = altura > largura;
-            const marg = Math.min(largura, altura) * 0.045;
-            const gap = Math.min(largura, altura) * 0.035;
-            const topo = altura * 0.12;
-            const baseLivre = altura * 0.80;
-            let cols = portrait ? 2 : 4;
-            let rows = portrait ? 2 : 1;
-            const celW = (largura - marg * 2 - gap * (cols - 1)) / cols;
-            const celH = (baseLivre - gap * (rows - 1)) / rows;
-
-            instrumentos = TIPOS_INSTRUMENTOS.map((tipo, i) => {
-                const col = i % cols;
-                const row = Math.floor(i / cols);
-                return {
-                    tipo,
-                    x: marg + col * (celW + gap) + celW / 2,
-                    y: topo + row * (celH + gap) + celH / 2,
-                    w: celW,
-                    h: celH,
-                    pulso: 0,
-                    brilho: 0,
-                    nota: 0
-                };
-            });
-        }
-
-        function pontoNoInstrumento(x, y, inst) {
-            return Math.abs(x - inst.x) <= inst.w * 0.47 && Math.abs(y - inst.y) <= inst.h * 0.45;
-        }
-
-        function tocarSomInstrumento(tipo) {
-            if (!audioCtx) return;
-            const agora = audioCtx.currentTime + 0.01;
-            const notas = {
-                xilofone: [261.63, 329.63, 392.00, 523.25],
-                tambor: [110, 82.41, 65.41],
-                sino: [783.99, 1046.50, 1318.51],
-                maracas: [180, 240, 320]
-            }[tipo];
-
-            if (tipo === 'tambor') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(150, agora);
-                osc.frequency.exponentialRampToValueAtTime(55, agora + 0.16);
-                gain.gain.setValueAtTime(0.5, agora);
-                gain.gain.exponentialRampToValueAtTime(0.001, agora + 0.18);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(agora); osc.stop(agora + 0.19);
-                return;
-            }
-
-            const qtd = tipo === 'maracas' ? 4 : 3;
-            for (let i = 0; i < qtd; i++) {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                const inicio = agora + i * (tipo === 'maracas' ? 0.035 : 0.07);
-                const freq = notas[(Math.floor(Math.random() * notas.length))] * (tipo === 'maracas' ? (0.9 + Math.random() * 0.35) : 1);
-                osc.type = tipo === 'sino' ? 'sine' : 'triangle';
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0, inicio);
-                gain.gain.linearRampToValueAtTime(tipo === 'maracas' ? 0.08 : 0.18, inicio + 0.015);
-                gain.gain.exponentialRampToValueAtTime(0.001, inicio + (tipo === 'sino' ? 0.9 : 0.22));
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(inicio); osc.stop(inicio + (tipo === 'sino' ? 0.95 : 0.25));
-            }
-        }
-
-        function criarParticulasInstrumento(x, y, cor) {
-            for (let i = 0; i < 14; i++) {
-                particulasInstrumentos.push({
-                    x, y,
-                    vx: (Math.random() - 0.5) * 9,
-                    vy: -Math.random() * 7 - 1,
-                    raio: Math.random() * 5 + 2,
-                    opacidade: 1,
-                    cor
-                });
-            }
-        }
-
-        function ativarInstrumento(i) {
-            const inst = instrumentos[i];
-            if (!inst) return;
-            iniciarAudio();
-            inst.pulso = 1;
-            inst.brilho = 1;
-            inst.nota = Math.random();
-            ultimoInstrumento = i;
-            tocarSomInstrumento(inst.tipo);
-            criarParticulasInstrumento(inst.x, inst.y - inst.h * 0.05, CORES_INSTRUMENTOS[i]);
-        }
-
-        function desenharInstrumento(inst, i) {
-            const p = 1 + inst.pulso * 0.045;
-            ctx.save();
-            ctx.translate(inst.x, inst.y);
-            ctx.scale(p, p);
-
-            // Cartão grande e arredondado
-            ctx.fillStyle = 'rgba(255,255,255,0.07)';
-            ctx.shadowBlur = 18;
-            ctx.shadowColor = CORES_INSTRUMENTOS[i];
-            ctx.beginPath();
-            const r = Math.min(inst.w, inst.h) * 0.08;
-            ctx.roundRect(-inst.w*0.47, -inst.h*0.45, inst.w*0.94, inst.h*0.9, r);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-
-            if (inst.tipo === 'xilofone') {
-                const barW = inst.w * 0.58, barH = Math.min(inst.h * 0.12, 42);
-                const cores = ['#EF5350','#FFCA28','#66BB6A','#42A5F5','#AB47BC','#FF7043'];
-                for (let k = 0; k < 6; k++) {
-                    const yy = -barH*3 + k * barH*1.12;
-                    const ww = barW * (0.72 + k*0.055);
-                    ctx.fillStyle = cores[k];
-                    ctx.beginPath(); ctx.roundRect(-ww/2, yy, ww, barH*0.72, barH*0.25); ctx.fill();
-                }
-                ctx.fillStyle = '#C9A66B';
-                ctx.beginPath(); ctx.arc(-barW*0.58, inst.h*0.24, barH*0.34, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(barW*0.58, inst.h*0.24, barH*0.34, 0, Math.PI*2); ctx.fill();
-            } else if (inst.tipo === 'tambor') {
-                const rr = Math.min(inst.w, inst.h) * 0.25;
-                ctx.fillStyle = '#D97A36';
-                ctx.beginPath(); ctx.ellipse(0, 0, rr*1.45, rr, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FFF3D6';
-                ctx.beginPath(); ctx.ellipse(0, -rr*0.12, rr*1.28, rr*0.68, 0, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = '#8D4B24'; ctx.lineWidth = Math.max(5, rr*0.07);
-                for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(k*rr*0.45, rr*0.45); ctx.lineTo(k*rr*0.35, -rr*0.5); ctx.stroke(); }
-                ctx.fillStyle = '#F4C27A';
-                ctx.beginPath(); ctx.arc(-rr*0.9, -rr*0.95, rr*0.13, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(rr*0.9, -rr*0.95, rr*0.13, 0, Math.PI*2); ctx.fill();
-            } else if (inst.tipo === 'sino') {
-                const rr = Math.min(inst.w, inst.h) * 0.24;
+                // maçaneta
                 ctx.fillStyle = '#FFD54F';
-                ctx.beginPath(); ctx.arc(0, -rr*0.05, rr*0.95, Math.PI, Math.PI*2); ctx.lineTo(rr*1.05, rr*0.8); ctx.lineTo(-rr*1.05, rr*0.8); ctx.closePath(); ctx.fill();
-                ctx.fillStyle = '#FFF3A0';
-                ctx.beginPath(); ctx.arc(-rr*0.3, -rr*0.35, rr*0.25, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#E0A900';
-                ctx.fillRect(-rr*0.12, rr*0.75, rr*0.24, rr*0.28);
-                ctx.beginPath(); ctx.arc(0, rr*1.02, rr*0.22, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = '#FFE082'; ctx.lineWidth = Math.max(5, rr*0.06);
-                ctx.beginPath(); ctx.moveTo(0, -rr*1.15); ctx.lineTo(0, -rr*0.95); ctx.stroke();
-                ctx.beginPath(); ctx.arc(0, -rr*1.25, rr*0.16, 0, Math.PI*2); ctx.fill();
-            } else {
-                const rr = Math.min(inst.w, inst.h) * 0.22;
-                [-1,1].forEach(side => {
-                    ctx.save(); ctx.translate(side*rr*0.72, 0); ctx.rotate(side*0.16);
-                    ctx.fillStyle = '#8BC34A';
-                    ctx.beginPath(); ctx.ellipse(0, 0, rr*0.72, rr*1.05, 0, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#DFF5B0';
-                    ctx.beginPath(); ctx.ellipse(0, -rr*0.48, rr*0.55, rr*0.18, 0, 0, Math.PI*2); ctx.fill();
-                    ctx.strokeStyle = '#689F38'; ctx.lineWidth = Math.max(4, rr*0.06);
-                    for (let k=0;k<4;k++){ ctx.beginPath(); ctx.moveTo(-rr*0.45+k*rr*0.3, rr*0.15); ctx.lineTo(-rr*0.45+k*rr*0.3, rr*0.8); ctx.stroke(); }
-                    ctx.restore();
-                });
+                ctx.shadowBlur = 9; ctx.shadowColor = '#FFD54F';
+                ctx.beginPath(); ctx.arc(lado < 0 ? folhaW*0.35 : -folhaW*0.35, r*0.05, r*0.075, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+            }
+            desenharFolha(-1);
+            desenharFolha(1);
+
+            // Olhos grandes na fresta: são a pista antes da descoberta.
+            if (abertura < 0.72) {
+                const olhoY = centroY - r*0.27;
+                const piscou = Math.sin(agora*0.0026 + p.fase) > 0.993;
+                const olhoX = Math.max(r*0.12, separacao*0.22);
+                ctx.save();
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = '#FFF176';
+                ctx.fillStyle = '#FFFDF2';
+                ctx.beginPath(); ctx.ellipse(p.x-olhoX, olhoY, r*0.14, r*0.12, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(p.x+olhoX, olhoY, r*0.14, r*0.12, 0, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#263238';
+                if (!piscou) {
+                    ctx.beginPath(); ctx.arc(p.x-olhoX, olhoY, r*0.055, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(p.x+olhoX, olhoY, r*0.055, 0, Math.PI*2); ctx.fill();
+                } else {
+                    ctx.fillRect(p.x-olhoX-r*0.10, olhoY-2, r*0.20, 4);
+                    ctx.fillRect(p.x+olhoX-r*0.10, olhoY-2, r*0.20, 4);
+                }
+                ctx.restore();
             }
 
-            if (inst.brilho > 0) {
-                ctx.globalAlpha = inst.brilho * 0.45;
-                ctx.fillStyle = '#FFFFFF';
-                ctx.beginPath(); ctx.arc(-inst.w*0.27, -inst.h*0.25, Math.min(inst.w, inst.h)*0.055, 0, Math.PI*2); ctx.fill();
+            if (abertura > 0.58) {
+                ctx.save();
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.font=`bold ${Math.max(20,Math.min(32,r*0.34))}px sans-serif`;
+                ctx.fillStyle='rgba(255,255,255,0.96)';
+                ctx.shadowBlur=10; ctx.shadowColor='#000';
+                ctx.fillText(p.animal.nome, p.x, topo-r*0.22);
+                ctx.restore();
             }
-            ctx.restore();
-        }
-
-        /* =================================================================
-           AQUÁRIO MÁGICO
-           ================================================================= */
-        function reconfigurarAquario() {
-            const n = 6;
-            const r = Math.min(largura, altura) * 0.055;
-            peixesAquario = Array.from({length:n}, (_, i) => ({
-                x: largura * (0.12 + Math.random()*0.76),
-                y: altura * (0.20 + Math.random()*0.58),
-                r: r * (0.95 + Math.random()*0.35),
-                vx: (0.45 + Math.random()*0.55) * (i%2 ? -1 : 1),
-                fase: Math.random()*Math.PI*2,
-                cor: CORES_PEIXES[i % CORES_PEIXES.length],
-                brilho: 0,
-                virado: i%2 ? -1 : 1,
-                cauda: 0
-            }));
-            bolhasAquario = [];
-            ondasAquario = [];
-            for (let i=0;i<18;i++) criarBolhaAquario(Math.random()*largura, altura*(0.25+Math.random()*0.7), true);
-        }
-
-        function criarBolhaAquario(x,y,solta=false) {
-            bolhasAquario.push({x,y,r:2+Math.random()*7,vx:(Math.random()-0.5)*0.35,vy:-(0.45+Math.random()*0.9),opacidade:solta?0.35:1, vida:solta?1:2});
-        }
-
-        function tocarSomPeixeAquario() {
-            if (!audioCtx) return;
-            const agora=audioCtx.currentTime+0.01;
-            const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
-            osc.type='sine';
-            osc.frequency.setValueAtTime(330+Math.random()*180, agora);
-            osc.frequency.exponentialRampToValueAtTime(660+Math.random()*180, agora+0.16);
-            gain.gain.setValueAtTime(0.001, agora);
-            gain.gain.linearRampToValueAtTime(0.11, agora+0.025);
-            gain.gain.exponentialRampToValueAtTime(0.001, agora+0.38);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(agora); osc.stop(agora+0.4);
-        }
-
-        function tocarBolhaAquario() {
-            if (!audioCtx) return;
-            const agora=audioCtx.currentTime+0.01;
-            const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
-            osc.type='sine'; osc.frequency.setValueAtTime(520,agora); osc.frequency.exponentialRampToValueAtTime(900,agora+0.08);
-            gain.gain.setValueAtTime(0.001,agora); gain.gain.linearRampToValueAtTime(0.055,agora+0.015); gain.gain.exponentialRampToValueAtTime(0.001,agora+0.16);
-            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(agora); osc.stop(agora+0.18);
-        }
-
-        function tocarAquario(x,y) {
-            iniciarAudio();
-            let escolhido=null, melhor=Infinity;
-            peixesAquario.forEach(peixe=>{
-                const d=Math.hypot(x-peixe.x,y-peixe.y);
-                if(d < peixe.r*2.0 && d<melhor){melhor=d; escolhido=peixe;}
-            });
-            if(escolhido){
-                escolhido.brilho=1; escolhido.cauda=1; escolhido.vx *= -1; escolhido.virado *= -1;
-                tocarSomPeixeAquario();
-                for(let i=0;i<8;i++) criarBolhaAquario(escolhido.x+(Math.random()-0.5)*escolhido.r*1.5, escolhido.y-escolhido.r*0.3);
-                ondasAquario.push({x:escolhido.x,y:escolhido.y,r:escolhido.r*0.35,opacidade:0.75});
-            } else {
-                tocarBolhaAquario();
-                for(let i=0;i<5;i++) criarBolhaAquario(x+(Math.random()-0.5)*25,y+(Math.random()-0.5)*18);
-                ondasAquario.push({x,y,r:8,opacidade:0.6});
-            }
-        }
-
-        function desenharPeixeAquario(p, agora) {
-            const r=p.r, s=p.virado;
-            ctx.save(); ctx.translate(p.x,p.y); ctx.scale(s,1);
-            ctx.globalAlpha=1;
-            ctx.shadowBlur=p.brilho*24; ctx.shadowColor='#FFFFFF';
-            ctx.fillStyle=p.cor;
-            ctx.beginPath(); ctx.ellipse(0,0,r*1.35,r*0.78,0,0,Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.moveTo(-r*1.05,0); ctx.lineTo(-r*1.85,-r*0.7); ctx.lineTo(-r*1.75,r*0.7); ctx.closePath(); ctx.fill();
-            ctx.shadowBlur=0;
-            ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(r*0.25,-r*0.23,r*0.42,r*0.16,-0.25,0,Math.PI*2); ctx.fill();
-            ctx.fillStyle='#FFFFFF'; ctx.beginPath(); ctx.arc(r*0.72,-r*0.18,r*0.22,0,Math.PI*2); ctx.fill();
-            ctx.fillStyle='#263238'; ctx.beginPath(); ctx.arc(r*0.78,-r*0.18,r*0.10,0,Math.PI*2); ctx.fill();
-            ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(r*0.81,-r*0.23,r*0.035,0,Math.PI*2); ctx.fill();
-            ctx.strokeStyle='rgba(80,50,100,0.28)'; ctx.lineWidth=Math.max(2,r*0.05);
-            ctx.beginPath(); ctx.arc(r*0.2,0,r*0.38,0.4,2.7); ctx.stroke();
-            ctx.restore();
-        }
-
-        function desenharAquarioFundo() {
-            const g=ctx.createLinearGradient(0,0,0,altura);
-            g.addColorStop(0,'#075985'); g.addColorStop(0.55,'#0891B2'); g.addColorStop(1,'#164E63');
-            ctx.fillStyle=g; ctx.fillRect(0,0,largura,altura);
-            ctx.fillStyle='rgba(255,255,255,0.08)';
-            for(let i=0;i<7;i++){
-                ctx.beginPath(); ctx.arc(largura*(0.08+i*0.16),altura*0.15,Math.min(largura,altura)*0.055,0,Math.PI*2); ctx.fill();
-            }
-            ctx.fillStyle='#166534';
-            for(let i=0;i<12;i++){
-                const x=(i+0.5)*largura/12, h=altura*(0.10+((i*37)%7)/50);
-                ctx.beginPath(); ctx.moveTo(x-8,altura); ctx.quadraticCurveTo(x-20,altura-h*0.5,x-8,altura-h); ctx.quadraticCurveTo(x+3,altura-h*0.55,x+8,altura-h*1.1); ctx.quadraticCurveTo(x+12,altura-h*0.45,x+18,altura); ctx.closePath(); ctx.fill();
-            }
-            ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.font=`bold ${Math.max(20,Math.min(30,largura*0.026))}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-            ctx.fillText('Toca nos peixinhos 🐠',largura/2,altura*0.055);
         }
 
         /* =================================================================
