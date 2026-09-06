@@ -377,105 +377,35 @@
             });
         }
 
-        function tocarSomAnimal(tipo) {
-            if (!audioCtx) return;
-            const agora = audioCtx.currentTime + 0.015;
-
-            // Sons estilizados e reconhecíveis (sem ficheiros externos),
-            // para que o jogo continue totalmente autónomo/offline.
-            const tom = (freq, inicio, dur, volume=0.22, tipoOsc='sine', fFim=null) => {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = tipoOsc;
-                osc.frequency.setValueAtTime(freq, inicio);
-                if (fFim) osc.frequency.exponentialRampToValueAtTime(Math.max(30,fFim), inicio+dur);
-                gain.gain.setValueAtTime(0.001, inicio);
-                gain.gain.linearRampToValueAtTime(volume, inicio+0.025);
-                gain.gain.exponentialRampToValueAtTime(0.001, inicio+dur);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(inicio); osc.stop(inicio+dur+0.02);
-            };
-
-            if (tipo === 'cao') {
-                tom(180, agora, 0.11, 0.32, 'sawtooth', 95);
-                tom(145, agora+0.13, 0.12, 0.30, 'sawtooth', 80);
-            } else if (tipo === 'gato') {
-                tom(420, agora, 0.48, 0.20, 'triangle', 760);
-                tom(650, agora+0.18, 0.42, 0.13, 'triangle', 360);
-            } else if (tipo === 'porco') {
-                tom(230, agora, 0.18, 0.28, 'sawtooth', 155);
-                tom(210, agora+0.21, 0.16, 0.25, 'sawtooth', 145);
-            } else if (tipo === 'pintainho') {
-                tom(720, agora, 0.12, 0.20, 'sine', 1120);
-                tom(860, agora+0.14, 0.11, 0.18, 'sine', 1240);
-                tom(700, agora+0.27, 0.14, 0.17, 'sine', 980);
-            } else if (tipo === 'coelho') {
-                // Som leve/curto para representar um coelhinho saltitante.
-                tom(650, agora, 0.10, 0.16, 'sine', 820);
-                tom(820, agora+0.11, 0.10, 0.14, 'sine', 980);
-                tom(700, agora+0.22, 0.12, 0.13, 'sine', 880);
-            } else if (tipo === 'urso') {
-                tom(120, agora, 0.48, 0.30, 'sawtooth', 70);
-                tom(95, agora+0.08, 0.40, 0.20, 'triangle', 55);
-            }
-        }
-
-        /* =================================================================
-           ESTADOS & VARIÁVEIS DOS JOGOS
-           ================================================================= */
-        let formasToque = [];
-        let particulasToque = [];
-        const CORES_TOQUE = ['#FF5733', '#FFC300', '#DAF7A6', '#33FFBD', '#3380FF', '#9D33FF', '#FF33A8'];
-
-        let rastoPintura = [];
-        let matizPintura = 0;
-        let ultimoSomPintura = 0;
-
-        let baloes = [];
-        let particulasBaloes = [];
-        let sorpresasBaloes = [];
-        let contadorSemEspecial = 0;
-        let ultimoTempoBaloes = 0;
-        const MAX_BALOES = 5;
-        const PALETA_BALOES = [
-            { nome: 'vermelho', base: '#FF2D55', luz: '#FFA3B5', sombra: '#99001A' },
-            { nome: 'azul',     base: '#2E86DE', luz: '#A0CBF8', sombra: '#104F8B' },
-            { nome: 'verde',    base: '#10AC84', luz: '#8CE2CB', sombra: '#065A44' },
-            { nome: 'amarelo',  base: '#FF9F1A', luz: '#FFDEAA', sombra: '#B36200' },
-            { nome: 'roxo',     base: '#9C27B0', luz: '#E1BEE7', sombra: '#4A148C' },
-            { nome: 'laranja',  base: '#FF5722', luz: '#FFAB91', sombra: '#BF360C' },
-            { nome: 'rosa',     base: '#E91E63', luz: '#F8BBD0', sombra: '#880E4F' },
-            { nome: 'ciano',    base: '#00BCD4', luz: '#B2EBF2', sombra: '#006064' }
-        ];
-        const EMOJIS_SURPRESA = ['🦢', '🐬', '🤹', '🧸', '🚕', '🌼', '🐤', '🏡', '🍓', '🌻', '🥕', '🌻', '🥣', '🍼', '🍊'];
-
-        let esconderijos = [];
-        const CATALOGO_ANIMAIS = {
-            urso:      { nome: 'urso',      corNuvem: '#A1887F' },
-            coelho:    { nome: 'coelho',    corNuvem: '#F8BBD0' }, 
-            pintainho: { nome: 'pintainho', corNuvem: '#FFF176' },
-            gato:      { nome: 'gato',      corNuvem: '#FFB74D' },
-            cao:       { nome: 'cao',       corNuvem: '#D7CCC8' },
-            porco:     { nome: 'porco',     corNuvem: '#F48FB1' }
+        // Sons reais dos animais. Cada toque interrompe o som anterior para
+        // evitar sobreposição. Os ficheiros são carregados diretamente de
+        // fontes abertas do Wikimedia Commons.
+        const SONS_ANIMAIS = {
+            cao: 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Barking_of_a_dog.ogg',
+            gato: 'https://upload.wikimedia.org/wikipedia/commons/c/c0/Maullido_de_gata_hembra_joven.ogg',
+            porco: 'https://upload.wikimedia.org/wikipedia/commons/a/ac/Pig_grunt_-_Erdie.ogg',
+            urso: 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Bear_growl.ogg',
+            vaca: 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Cow_in_Vezo.ogg'
         };
+        let somAnimalAtual = null;
 
-        let pecaPaiEncaixe = null;
-        let encaixes = [];
-        let particulasEncaixe = [];
-        let emTransicaoEncaixe = false;
-
-        let instrumentos = [];
-        let particulasInstrumentos = [];
-        let toquesInstrumentos = [];
-        let ultimoInstrumento = -1;
-        const TIPOS_FORMAS = ['circulo', 'quadrado', 'triangulo', 'estrela'];
-        const CORES_ENCAIXE = ['#FF5733', '#FFC300', '#33FFBD', '#3380FF', '#9D33FF', '#FF33A8'];
-
-        let peixesAquario = [];
-        let bolhasAquario = [];
-        let ondasAquario = [];
-        const CORES_PEIXES = ['#FF8A65', '#FFD54F', '#64B5F6', '#BA68C8', '#81C784'];
-
+        function tocarSomAnimal(tipo) {
+            const url = SONS_ANIMAIS[tipo];
+            if (!url) return;
+            try {
+                if (somAnimalAtual) {
+                    somAnimalAtual.pause();
+                    somAnimalAtual.currentTime = 0;
+                }
+                const audio = new Audio(url);
+                audio.volume = 0.72;
+                somAnimalAtual = audio;
+                audio.play().catch(() => {});
+                audio.addEventListener('ended', () => {
+                    if (somAnimalAtual === audio) somAnimalAtual = null;
+                }, { once:true });
+            } catch (e) {}
+        }
 
         function iniciarEstadoJogo(nome) {
             if (nome === 'toque') {
@@ -549,12 +479,11 @@
            salta para fora e depois muda para outro animal.
            ================================================================= */
         const ANIMAIS_ESCONDIDOS = [
-            { tipo:'urso',      nome:'Urso',      cor:'#A1887F', emoji:'🐻' },
-            { tipo:'coelho',    nome:'Coelho',    cor:'#F48FB1', emoji:'🐰' },
-            { tipo:'pintainho', nome:'Pintainho', cor:'#FFD54F', emoji:'🐥' },
-            { tipo:'gato',      nome:'Gato',      cor:'#FFB74D', emoji:'🐱' },
-            { tipo:'cao',       nome:'Cão',       cor:'#BCAAA4', emoji:'🐶' },
-            { tipo:'porco',     nome:'Porquinho', cor:'#F48FB1', emoji:'🐷' }
+            { tipo:'urso',  nome:'Urso',       cor:'#8D6E63', emoji:'🐻' },
+            { tipo:'vaca',  nome:'Vaca',       cor:'#90CAF9', emoji:'🐮' },
+            { tipo:'gato',  nome:'Gato',       cor:'#FF9800', emoji:'🐱' },
+            { tipo:'cao',   nome:'Cão',        cor:'#A1887F', emoji:'🐶' },
+            { tipo:'porco', nome:'Porquinho',  cor:'#F06292', emoji:'🐷' }
         ];
         let portasEscondidas = [];
         let estrelasDescoberta = [];
@@ -575,8 +504,8 @@
             const r = getRaioPortaEscondida();
             const portrait = altura > largura;
             const pos = portrait
-                ? [{x:largura*0.50,y:altura*0.27},{x:largura*0.50,y:altura*0.53},{x:largura*0.50,y:altura*0.79}]
-                : [{x:largura*0.20,y:altura*0.58},{x:largura*0.50,y:altura*0.58},{x:largura*0.80,y:altura*0.58}];
+                ? [{x:largura*0.50,y:altura*0.28},{x:largura*0.50,y:altura*0.50},{x:largura*0.50,y:altura*0.72}]
+                : [{x:largura*0.20,y:altura*0.50},{x:largura*0.50,y:altura*0.50},{x:largura*0.80,y:altura*0.50}];
 
             const anteriores = portasEscondidas;
             portasEscondidas = pos.map((pt,i) => {
@@ -600,7 +529,6 @@
             porta.salto = 1;
             porta.brilho = 1;
             tocarSomAnimal(porta.animal.tipo);
-            tocarSomMagico();
 
             const r = getRaioPortaEscondida();
             for (let i=0;i<18;i++) {
@@ -656,18 +584,22 @@
             ctx.save();
             ctx.translate(porta.x, porta.y + r*0.35);
             ctx.fillStyle=porta.animal.cor;
-            ctx.globalAlpha=0.38;
+            ctx.globalAlpha=0.70;
             ctx.shadowBlur=18; ctx.shadowColor='rgba(0,0,0,0.35)';
             ctx.beginPath();
             ctx.roundRect(-larguraPorta/2, -alturaPorta/2, larguraPorta, alturaPorta, r*0.22);
             ctx.fill();
+            ctx.globalAlpha=0.95;
+            ctx.lineWidth=Math.max(3,r*0.035);
+            ctx.strokeStyle=porta.animal.cor;
+            ctx.stroke();
             ctx.globalAlpha=1;
             ctx.shadowBlur=0;
 
             // Duas folhas semi-transparentes: a cor do animal continua a aparecer.
             const folhaW=larguraPorta*0.56;
             const desloc=abertura*larguraPorta*0.52;
-            ctx.fillStyle='rgba(255,255,255,0.48)';
+            ctx.fillStyle='rgba(255,255,255,0.30)';
             ctx.beginPath(); ctx.roundRect(-larguraPorta/2-desloc, -alturaPorta/2, folhaW, alturaPorta, r*0.16); ctx.fill();
             ctx.beginPath(); ctx.roundRect(larguraPorta/2+desloc-folhaW, -alturaPorta/2, folhaW, alturaPorta, r*0.16); ctx.fill();
 
