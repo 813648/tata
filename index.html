@@ -226,7 +226,7 @@
             </div>
             <div class="card-app escondidas" onclick="abrirJogo('escondidas')">
                 <div class="icon">🙈</div>
-                <div class="nome">Quem Está Escondido?</div>
+                <div class="nome">Escondidas Mágicas</div>
             </div>
             <div class="card-app encaixe" onclick="abrirJogo('encaixe')">
                 <div class="icon">🧩</div>
@@ -377,6 +377,100 @@
             });
         }
 
+        // Sons locais: prefere MP3 e, se não existir, usa OGG.
+        // Assim podes substituir um som apenas copiando, por exemplo,
+        // audio/gato.mp3 sem alterar o JavaScript.
+        const audioAnimais = {};
+        let audioAnimalAtual = null;
+
+        function tocarSomAnimal(tipo) {
+            const nomeFicheiro = tipo === 'porco' ? 'porquinho' : tipo;
+
+            if (audioAnimalAtual) {
+                try { audioAnimalAtual.pause(); audioAnimalAtual.currentTime = 0; } catch (_) {}
+            }
+
+            const tocar = (extensao, tentarFallback) => {
+                const chave = `${nomeFicheiro}.${extensao}`;
+                let audio = audioAnimais[chave];
+                if (!audio) {
+                    audio = new Audio(`audio/${chave}`);
+                    audio.preload = 'auto';
+                    audio.volume = 0.88;
+                    audioAnimais[chave] = audio;
+                }
+                audio.onerror = () => {
+                    audio.onerror = null;
+                    if (tentarFallback) tocar('ogg', false);
+                };
+                audio.currentTime = 0;
+                audioAnimalAtual = audio;
+                const promessa = audio.play();
+                if (promessa && promessa.catch) {
+                    promessa.catch(() => { if (tentarFallback) tocar('ogg', false); });
+                }
+            };
+
+            tocar('mp3', true);
+        }
+
+        /* =================================================================
+           ESTADOS & VARIÁVEIS DOS JOGOS
+           ================================================================= */
+        let formasToque = [];
+        let particulasToque = [];
+        const CORES_TOQUE = ['#FF5733', '#FFC300', '#DAF7A6', '#33FFBD', '#3380FF', '#9D33FF', '#FF33A8'];
+
+        let rastoPintura = [];
+        let matizPintura = 0;
+        let ultimoSomPintura = 0;
+
+        let baloes = [];
+        let particulasBaloes = [];
+        let sorpresasBaloes = [];
+        let contadorSemEspecial = 0;
+        let ultimoTempoBaloes = 0;
+        const MAX_BALOES = 5;
+        const PALETA_BALOES = [
+            { nome: 'vermelho', base: '#FF2D55', luz: '#FFA3B5', sombra: '#99001A' },
+            { nome: 'azul',     base: '#2E86DE', luz: '#A0CBF8', sombra: '#104F8B' },
+            { nome: 'verde',    base: '#10AC84', luz: '#8CE2CB', sombra: '#065A44' },
+            { nome: 'amarelo',  base: '#FF9F1A', luz: '#FFDEAA', sombra: '#B36200' },
+            { nome: 'roxo',     base: '#9C27B0', luz: '#E1BEE7', sombra: '#4A148C' },
+            { nome: 'laranja',  base: '#FF5722', luz: '#FFAB91', sombra: '#BF360C' },
+            { nome: 'rosa',     base: '#E91E63', luz: '#F8BBD0', sombra: '#880E4F' },
+            { nome: 'ciano',    base: '#00BCD4', luz: '#B2EBF2', sombra: '#006064' }
+        ];
+        const EMOJIS_SURPRESA = ['🦢', '🐬', '🤹', '🧸', '🚕', '🌼', '🐤', '🏡', '🍓', '🌻', '🥕', '🌻', '🥣', '🍼', '🍊'];
+
+        let esconderijos = [];
+        const CATALOGO_ANIMAIS = {
+            urso:      { nome: 'urso',      corNuvem: '#A1887F' },
+            coelho:    { nome: 'coelho',    corNuvem: '#F8BBD0' }, 
+            pintainho: { nome: 'pintainho', corNuvem: '#FFF176' },
+            gato:      { nome: 'gato',      corNuvem: '#FFB74D' },
+            cao:       { nome: 'cao',       corNuvem: '#D7CCC8' },
+            porco:     { nome: 'porco',     corNuvem: '#F48FB1' }
+        };
+
+        let pecaPaiEncaixe = null;
+        let encaixes = [];
+        let particulasEncaixe = [];
+        let emTransicaoEncaixe = false;
+
+        let instrumentos = [];
+        let particulasInstrumentos = [];
+        let toquesInstrumentos = [];
+        let ultimoInstrumento = -1;
+        const TIPOS_FORMAS = ['circulo', 'quadrado', 'triangulo', 'estrela'];
+        const CORES_ENCAIXE = ['#FF5733', '#FFC300', '#33FFBD', '#3380FF', '#9D33FF', '#FF33A8'];
+
+        let peixesAquario = [];
+        let bolhasAquario = [];
+        let ondasAquario = [];
+        const CORES_PEIXES = ['#FF8A65', '#FFD54F', '#64B5F6', '#BA68C8', '#81C784'];
+
+
         function iniciarEstadoJogo(nome) {
             if (nome === 'toque') {
                 formasToque = [];
@@ -397,7 +491,6 @@
             } else if (nome === 'escondidas') {
                 estrelasDescoberta = [];
                 reconfigurarEsconderijos();
-                prepararSonsAnimais();
             } else if (nome === 'encaixe') {
                 iniciarNovaSequenciaEncaixe();
             } else if (nome === 'instrumentos') {
@@ -444,31 +537,26 @@
         }
 
         /* =================================================================
-           LÓGICA: QUEM ESTÁ ESCONDIDO? — A PORTA ENTREABERTA
-           Uma única porta grande e colorida, integrada no estilo mágico
-           do Portal. Dois olhos espreitam pela fresta; ao tocar, a porta
-           abre, o animal cresce e aparece com o seu som.
+           LÓGICA: QUEM ESTÁ ESCONDIDO? — TEATRO DAS PORTAS MÁGICAS
+           Cada porta esconde um animal. As pistas aparecem antes da
+           descoberta: olhos/orelhas espreitam, a porta abre, o animal
+           salta para fora e depois muda para outro animal.
            ================================================================= */
         const ANIMAIS_ESCONDIDOS = [
-            { tipo:'urso',  nome:'Urso',       cor:'#8D6E63', emoji:'🐻' },
-            { tipo:'vaca',  nome:'Vaca',       cor:'#7E57C2', emoji:'🐮' },
-            { tipo:'gato',  nome:'Gato',       cor:'#FF9800', emoji:'🐱' },
-            { tipo:'cao',   nome:'Cão',        cor:'#42A5F5', emoji:'🐶' },
-            { tipo:'porco', nome:'Porquinho',  cor:'#EC407A', emoji:'🐷' }
+            { tipo:'urso',  nome:'Urso',      cor:'#9C6B4F' },
+            { tipo:'vaca',  nome:'Vaca',      cor:'#66BB6A' },
+            { tipo:'gato',  nome:'Gato',      cor:'#FF9F43' },
+            { tipo:'cao',   nome:'Cão',       cor:'#42A5F5' },
+            { tipo:'porco', nome:'Porquinho', cor:'#EC6FA8' }
         ];
-        let portaEscondida = null;
+        let portasEscondidas = [];
         let estrelasDescoberta = [];
         let ultimoEventoEscondido = 0;
 
-        const AUDIO_ANIMAIS_LOCAIS = {
-            cao: 'audio/cao.ogg', gato: 'audio/gato.ogg', porco: 'audio/porquinho.ogg',
-            vaca: 'audio/vaca.ogg', urso: 'audio/urso.ogg'
-        };
-        let somAnimalAtual = null;
-        const sonsAnimaisCache = {};
-
         function getRaioPortaEscondida() {
-            return Math.min(largura * 0.24, altura * 0.30);
+            return altura > largura
+                ? Math.min(largura * 0.30, altura * 0.16)
+                : Math.min(largura * 0.14, altura * 0.22);
         }
 
         function escolherAnimalDiferente(excepto) {
@@ -478,93 +566,67 @@
 
         function reconfigurarEsconderijos() {
             const r = getRaioPortaEscondida();
-            portaEscondida = {
-                x: largura * 0.50,
-                y: altura * 0.53,
-                animal: portaEscondida ? portaEscondida.animal : ANIMAIS_ESCONDIDOS[Math.floor(Math.random()*ANIMAIS_ESCONDIDOS.length)],
-                abertura: 0,
-                salto: 0,
-                brilho: 0,
-                tempoFecho: 0,
-                proximoAnimal: 0,
-                fase: Math.random()*Math.PI*2,
-                batida: 0
-            };
-        }
+            const portrait = altura > largura;
+            const pos = portrait
+                ? [{x:largura*0.50,y:altura*0.27},{x:largura*0.50,y:altura*0.53},{x:largura*0.50,y:altura*0.79}]
+                : [{x:largura*0.20,y:altura*0.58},{x:largura*0.50,y:altura*0.58},{x:largura*0.80,y:altura*0.58}];
 
-        function tocarSomAnimal(tipo) {
-            if (somAnimalAtual) {
-                try { somAnimalAtual.pause(); somAnimalAtual.currentTime = 0; } catch(e) {}
-                somAnimalAtual = null;
-            }
-            const caminho = AUDIO_ANIMAIS_LOCAIS[tipo];
-            if (!caminho) return;
-            try {
-                let audio = sonsAnimaisCache[tipo];
-                if (!audio) {
-                    audio = new Audio(caminho);
-                    audio.preload = 'auto';
-                    audio.volume = 0.78;
-                    sonsAnimaisCache[tipo] = audio;
-                }
-                audio.currentTime = 0;
-                somAnimalAtual = audio;
-                audio.play().catch(() => {});
-                audio.onended = () => { if (somAnimalAtual === audio) somAnimalAtual = null; };
-            } catch(e) {}
-        }
-
-        function prepararSonsAnimais() {
-            Object.entries(AUDIO_ANIMAIS_LOCAIS).forEach(([tipo, caminho]) => {
-                try {
-                    const a = new Audio(caminho);
-                    a.preload = 'auto';
-                    a.volume = 0.78;
-                    sonsAnimaisCache[tipo] = a;
-                } catch(e) {}
+            const anteriores = portasEscondidas;
+            portasEscondidas = pos.map((pt,i) => {
+                const anterior = anteriores[i];
+                const animal = anterior ? anterior.animal : ANIMAIS_ESCONDIDOS[i % ANIMAIS_ESCONDIDOS.length];
+                return {
+                    x:pt.x, y:pt.y, animal,
+                    aberta:false, abertura:0, salto:0, brilho:0,
+                    tempoFecho:0, proximoAnimal:0,
+                    fase:Math.random()*Math.PI*2,
+                    piscou:false
+                };
             });
         }
 
-        function abrirPortaEscondida() {
-            if (!portaEscondida || portaEscondida.abertura > 0.75) return;
+        function abrirPortaEscondida(porta) {
+            if (porta.aberta) return;
             iniciarAudio();
-            portaEscondida.abertura = 0.001;
-            portaEscondida.salto = 1;
-            portaEscondida.brilho = 1;
-            portaEscondida.batida = 1;
-            portaEscondida.tempoFecho = performance.now() + 2700;
-            tocarSomAnimal(portaEscondida.animal.tipo);
+            porta.aberta = true;
+            porta.tempoFecho = performance.now() + 2500;
+            porta.salto = 1;
+            porta.brilho = 1;
+            tocarSomAnimal(porta.animal.tipo);
 
             const r = getRaioPortaEscondida();
-            for (let i=0;i<26;i++) {
+            for (let i=0;i<18;i++) {
                 const ang = Math.random()*Math.PI*2;
-                const vel = 1 + Math.random()*3.5;
+                const vel = 1.2 + Math.random()*2.8;
                 estrelasDescoberta.push({
-                    x:portaEscondida.x, y:portaEscondida.y-r*0.15,
-                    vx:Math.cos(ang)*vel, vy:Math.sin(ang)*vel-2,
+                    x:porta.x, y:porta.y-r*0.15,
+                    vx:Math.cos(ang)*vel, vy:Math.sin(ang)*vel-1.5,
                     r:3+Math.random()*6, vida:1, rot:Math.random()*6
                 });
             }
         }
 
         function atualizarPortasEscondidas(agora) {
-            if (!portaEscondida) reconfigurarEsconderijos();
-            const p = portaEscondida;
-            if (p.abertura > 0 && agora >= p.tempoFecho) {
-                p.abertura = -0.01;
-                p.proximoAnimal = agora + 650;
-            }
-            if (p.abertura < 0 && p.proximoAnimal && agora >= p.proximoAnimal) {
-                p.animal = escolherAnimalDiferente(p.animal.tipo);
-                p.abertura = 0;
-                p.proximoAnimal = 0;
-                p.batida = 0;
-            }
-            const alvo = p.abertura < 0 ? 0 : (p.abertura > 0 ? 1 : 0);
-            p.abertura += (alvo - p.abertura) * 0.14;
-            if (p.salto > 0) { p.salto *= 0.86; if (p.salto < 0.02) p.salto = 0; }
-            p.brilho *= 0.91;
-            p.batida *= 0.90;
+            if (!portasEscondidas.length) reconfigurarEsconderijos();
+            portasEscondidas.forEach(porta => {
+                if (porta.aberta && agora >= porta.tempoFecho) {
+                    porta.aberta = false;
+                    porta.proximoAnimal = agora + 500;
+                }
+                if (!porta.aberta && porta.proximoAnimal && agora >= porta.proximoAnimal) {
+                    const novo = escolherAnimalDiferente(porta.animal.tipo);
+                    porta.animal = novo;
+                    porta.proximoAnimal = 0;
+                    porta.piscou = false;
+                }
+                const alvo = porta.aberta ? 1 : 0;
+                porta.abertura += (alvo - porta.abertura) * 0.16;
+                if (porta.salto > 0) {
+                    porta.salto *= 0.84;
+                    if (porta.salto < 0.02) porta.salto = 0;
+                }
+                porta.brilho *= 0.91;
+            });
 
             for (let i=estrelasDescoberta.length-1;i>=0;i--) {
                 const e=estrelasDescoberta[i];
@@ -573,139 +635,445 @@
             }
         }
 
-        function desenharPortaEscondida(p, r, agora) {
-            // Nova abordagem: duas folhas de uma porta entreaberta.
-            // Não há rotação da porta. Ao tocar, as duas folhas afastam-se
-            // suavemente para os lados e revelam o animal no interior.
-            const abertura = Math.max(0, Math.min(1, p.abertura));
-            const centroY = altura * 0.50;
-            const portaW = Math.min(largura * 0.58, r * 2.35);
-            const portaH = Math.min(altura * 0.66, r * 2.55);
-            const topo = centroY - portaH / 2;
-            const fundo = centroY + portaH / 2;
-            const moldura = Math.max(10, r * 0.075);
-            const folhaW = portaW * 0.48;
-            const separacao = portaW * 0.015 + abertura * portaW * 0.42;
-            const escala = 1 + Math.sin(agora * 0.004 + p.fase) * 0.012;
-            const animalEscala = 0.48 + abertura * 0.62 + p.salto * 0.10;
-            const animalY = fundo - r * 0.52 - p.salto * r * 0.28;
+        function desenharPortaEscondida(porta, r, agora) {
+            const abertura = porta.abertura;
+            const centroY = porta.y + r*0.10;
+            const portaW = r*1.48;
+            const portaH = r*1.82;
+            const topo = centroY - portaH/2;
+            const balanco = Math.sin(agora*0.002 + porta.fase) * r*0.015;
 
-            // Chão luminoso — dá ao animal um lugar para aparecer e evita
-            // que a cena fique visualmente perdida no fundo escuro do Portal.
+            // Moldura exterior colorida e bastante viva.
             ctx.save();
-            const gradChao = ctx.createRadialGradient(p.x, fundo, 2, p.x, fundo, portaW * 0.72);
-            gradChao.addColorStop(0, p.animal.cor + 'AA');
-            gradChao.addColorStop(0.55, p.animal.cor + '35');
-            gradChao.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradChao;
-            ctx.beginPath(); ctx.ellipse(p.x, fundo + r*0.12, portaW*0.68, r*0.30, 0, 0, Math.PI*2); ctx.fill();
-            ctx.restore();
-
-            // Moldura colorida da porta.
-            ctx.save();
-            ctx.shadowBlur = 28;
-            ctx.shadowColor = p.animal.cor;
-            ctx.fillStyle = p.animal.cor;
-            ctx.globalAlpha = 0.95;
+            ctx.translate(porta.x, centroY);
+            ctx.fillStyle = porta.animal.cor;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = porta.animal.cor;
             ctx.beginPath();
-            ctx.roundRect(p.x - portaW/2 - moldura, topo - moldura, portaW + moldura*2, portaH + moldura*2, r*0.22);
+            ctx.roundRect(-portaW*0.57, -portaH*0.56, portaW*1.14, portaH*1.12, r*0.16);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Interior escuro da porta.
+            ctx.fillStyle = '#10101A';
+            ctx.beginPath();
+            ctx.roundRect(-portaW/2, -portaH/2, portaW, portaH, r*0.11);
             ctx.fill();
             ctx.restore();
 
-            // Interior: permanece visível pela fresta mesmo antes de abrir.
+            // Animal aparece primeiro no interior e cresce ao abrir.
+            if (abertura > 0.08 || porta.salto > 0.02) {
+                const progresso = Math.min(1, abertura*1.15 + porta.salto*0.18);
+                const escala = 0.58 + progresso*0.48;
+                const yAnimal = centroY + r*0.12 - progresso*r*0.14 - porta.salto*r*0.22;
+                ctx.save();
+                ctx.translate(porta.x + balanco, yAnimal);
+                ctx.scale(escala, escala);
+                ctx.globalAlpha = Math.min(1, 0.25 + progresso*0.95);
+                desenharIlustracaoAnimal(0, 0, porta.animal.tipo, r*0.78);
+                ctx.globalAlpha = 1;
+                ctx.restore();
+            }
+
+            // Uma única folha vista entreaberta. A dobradiça fica à esquerda;
+            // a folha desloca-se e estreita-se, simulando abertura em perspetiva.
+            const aberturaBase = 0.18; // sempre ligeiramente entreaberta
+            const a = aberturaBase + abertura*0.82;
+            const folhaW = portaW * (1 - a*0.72);
+            const folhaX = porta.x - portaW/2 + folhaW/2 - a*portaW*0.06;
+
             ctx.save();
-            ctx.fillStyle = '#05060D';
+            ctx.translate(folhaX, centroY);
+            ctx.fillStyle = porta.animal.cor;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = 'rgba(0,0,0,0.55)';
             ctx.beginPath();
-            ctx.roundRect(p.x-portaW/2, topo, portaW, portaH, r*0.17);
+            ctx.roundRect(-folhaW/2, -portaH/2, folhaW, portaH, r*0.10);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Painéis claros, mantendo a cor dominante da porta.
+            ctx.strokeStyle = 'rgba(255,255,255,0.42)';
+            ctx.lineWidth = Math.max(2, r*0.018);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(255,255,255,0.14)';
+            ctx.beginPath();
+            ctx.roundRect(-folhaW*0.34, -portaH*0.34, folhaW*0.68, portaH*0.27, r*0.07);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.roundRect(-folhaW*0.34, portaH*0.04, folhaW*0.68, portaH*0.27, r*0.07);
+            ctx.fill();
+
+            // Maçaneta.
+            ctx.fillStyle = '#FFE082';
+            ctx.shadowBlur = 8; ctx.shadowColor = '#FFD54F';
+            ctx.beginPath();
+            ctx.arc(folhaW*0.34, r*0.06, r*0.075, 0, Math.PI*2);
             ctx.fill();
             ctx.restore();
 
-            // Animal: desenhado ANTES das folhas, mas só fica progressivamente
-            // visível através da abertura central. Quando totalmente aberto,
-            // fica integralmente à frente do interior.
-            if (abertura > 0.015) {
+            // Olhos na fresta enquanto a porta ainda está maioritariamente fechada.
+            if (abertura < 0.62) {
+                const frestaX = porta.x + portaW*0.28;
+                const olhoY = topo + portaH*0.38;
+                const piscar = Math.sin(agora*0.0027 + porta.fase) > 0.988;
                 ctx.save();
-                ctx.beginPath();
-                ctx.roundRect(p.x-portaW/2, topo, portaW, portaH, r*0.17);
-                ctx.clip();
-                ctx.translate(p.x, animalY);
-                ctx.scale(animalEscala*escala, animalEscala*escala);
-                ctx.globalAlpha = Math.min(1, 0.18 + abertura*1.05);
-                desenharIlustracaoAnimal(0, 0, p.animal.tipo, r*0.72);
-                ctx.restore();
-            }
-
-            // Duas folhas: fechadas deixam apenas uma pequena fresta; abertas
-            // deslizam para os lados. Isto substitui completamente a rotação.
-            function desenharFolha(lado) {
-                const desloc = lado * (separacao * 0.50);
-                const cx = p.x + lado * (portaW*0.25 + separacao*0.22);
-                ctx.save();
-                ctx.translate(cx + desloc, centroY);
-                const grad = ctx.createLinearGradient(-folhaW/2, 0, folhaW/2, 0);
-                grad.addColorStop(0, lado < 0 ? p.animal.cor : 'rgba(255,255,255,0.20)');
-                grad.addColorStop(0.50, p.animal.cor);
-                grad.addColorStop(1, lado < 0 ? 'rgba(255,255,255,0.20)' : p.animal.cor);
-                ctx.fillStyle = grad;
-                ctx.shadowBlur = 16;
-                ctx.shadowColor = 'rgba(0,0,0,0.55)';
-                ctx.beginPath();
-                ctx.roundRect(-folhaW/2, -portaH/2, folhaW, portaH, r*0.13);
-                ctx.fill();
-                ctx.shadowBlur = 0;
-
-                // brilho e ripas
-                ctx.lineWidth = Math.max(2, r*0.018);
-                ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-                ctx.stroke();
-                ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-                ctx.lineWidth = Math.max(2, r*0.012);
-                for (let i=1;i<5;i++) {
-                    const xx = -folhaW/2 + folhaW*i/5;
-                    ctx.beginPath(); ctx.moveTo(xx,-portaH*0.40); ctx.lineTo(xx,portaH*0.40); ctx.stroke();
-                }
-
-                // maçaneta
-                ctx.fillStyle = '#FFD54F';
-                ctx.shadowBlur = 9; ctx.shadowColor = '#FFD54F';
-                ctx.beginPath(); ctx.arc(lado < 0 ? folhaW*0.35 : -folhaW*0.35, r*0.05, r*0.075, 0, Math.PI*2); ctx.fill();
-                ctx.restore();
-            }
-            desenharFolha(-1);
-            desenharFolha(1);
-
-            // Olhos grandes na fresta: são a pista antes da descoberta.
-            if (abertura < 0.72) {
-                const olhoY = centroY - r*0.27;
-                const piscou = Math.sin(agora*0.0026 + p.fase) > 0.993;
-                const olhoX = Math.max(r*0.12, separacao*0.22);
-                ctx.save();
-                ctx.shadowBlur = 16;
-                ctx.shadowColor = '#FFF176';
                 ctx.fillStyle = '#FFFDF2';
-                ctx.beginPath(); ctx.ellipse(p.x-olhoX, olhoY, r*0.14, r*0.12, 0, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(p.x+olhoX, olhoY, r*0.14, r*0.12, 0, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 12; ctx.shadowColor = '#FFF176';
+                ctx.beginPath(); ctx.ellipse(frestaX-r*0.12, olhoY, r*0.11, r*0.095, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(frestaX+r*0.12, olhoY, r*0.11, r*0.095, 0, 0, Math.PI*2); ctx.fill();
                 ctx.shadowBlur = 0;
-                ctx.fillStyle = '#263238';
-                if (!piscou) {
-                    ctx.beginPath(); ctx.arc(p.x-olhoX, olhoY, r*0.055, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(p.x+olhoX, olhoY, r*0.055, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#20202A';
+                if (!piscar) {
+                    ctx.beginPath(); ctx.arc(frestaX-r*0.12, olhoY, r*0.043, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(frestaX+r*0.12, olhoY, r*0.043, 0, Math.PI*2); ctx.fill();
                 } else {
-                    ctx.fillRect(p.x-olhoX-r*0.10, olhoY-2, r*0.20, 4);
-                    ctx.fillRect(p.x+olhoX-r*0.10, olhoY-2, r*0.20, 4);
+                    ctx.fillRect(frestaX-r*0.20, olhoY-2, r*0.16, 4);
+                    ctx.fillRect(frestaX+r*0.04, olhoY-2, r*0.16, 4);
                 }
                 ctx.restore();
             }
 
-            if (abertura > 0.58) {
+            if (porta.aberta) {
                 ctx.save();
+                ctx.font = `bold ${Math.max(18,Math.min(30,r*0.32))}px sans-serif`;
                 ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.font=`bold ${Math.max(20,Math.min(32,r*0.34))}px sans-serif`;
                 ctx.fillStyle='rgba(255,255,255,0.96)';
-                ctx.shadowBlur=10; ctx.shadowColor='#000';
-                ctx.fillText(p.animal.nome, p.x, topo-r*0.22);
+                ctx.shadowBlur=8; ctx.shadowColor='#000';
+                ctx.fillText(porta.animal.nome, porta.x, topo-r*0.17);
                 ctx.restore();
             }
+        }
+
+        /* =================================================================
+           LÓGICA: ENCAIXE MÁGICO
+           ================================================================= */
+        function reconfigurarEncaixes() {
+            const tam = Math.min(largura, altura) * 0.12;
+            const ladoEsquerdoX = largura * 0.28;
+            const ladoDireitoX = largura * 0.75;
+
+            if (pecaPaiEncaixe) {
+                pecaPaiEncaixe.tamanho = tam;
+                pecaPaiEncaixe.startX = ladoDireitoX;
+                pecaPaiEncaixe.startY = altura * 0.5;
+                if (!pecaPaiEncaixe.arrastando) {
+                    pecaPaiEncaixe.x = pecaPaiEncaixe.startX;
+                    pecaPaiEncaixe.y = pecaPaiEncaixe.startY;
+                }
+            }
+
+            if (encaixes.length === 2) {
+                encaixes[0].x = ladoEsquerdoX;
+                encaixes[0].y = altura * 0.3;
+                encaixes[0].tamanho = tam;
+
+                encaixes[1].x = ladoEsquerdoX;
+                encaixes[1].y = altura * 0.7;
+                encaixes[1].tamanho = tam;
+            }
+        }
+
+        function iniciarNovaSequenciaEncaixe() {
+            emTransicaoEncaixe = false;
+            const formaCerta = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
+            let formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
+            while (formaErrada === formaCerta) {
+                formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
+            }
+
+            const corPeca = CORES_ENCAIXE[Math.floor(Math.random() * CORES_ENCAIXE.length)];
+            const posicaoCerta = Math.random() < 0.5 ? 0 : 1;
+
+            encaixes = [
+                { tipo: posicaoCerta === 0 ? formaCerta : formaErrada, eCorreta: posicaoCerta === 0 },
+                { tipo: posicaoCerta === 1 ? formaCerta : formaErrada, eCorreta: posicaoCerta === 1 }
+            ];
+
+            pecaPaiEncaixe = {
+                tipo: formaCerta,
+                cor: corPeca,
+                arrastando: false
+            };
+
+            reconfigurarEncaixes();
+        }
+
+        /* =================================================================
+           INSTRUMENTOS MÁGICOS
+           ================================================================= */
+        const TIPOS_INSTRUMENTOS = ['xilofone', 'tambor', 'sino', 'maracas'];
+        const CORES_INSTRUMENTOS = ['#FF8A65', '#64B5F6', '#81C784', '#FFD54F'];
+
+        function reconfigurarInstrumentos() {
+            const portrait = altura > largura;
+            const marg = Math.min(largura, altura) * 0.045;
+            const gap = Math.min(largura, altura) * 0.035;
+            const topo = altura * 0.12;
+            const baseLivre = altura * 0.80;
+            let cols = portrait ? 2 : 4;
+            let rows = portrait ? 2 : 1;
+            const celW = (largura - marg * 2 - gap * (cols - 1)) / cols;
+            const celH = (baseLivre - gap * (rows - 1)) / rows;
+
+            instrumentos = TIPOS_INSTRUMENTOS.map((tipo, i) => {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                return {
+                    tipo,
+                    x: marg + col * (celW + gap) + celW / 2,
+                    y: topo + row * (celH + gap) + celH / 2,
+                    w: celW,
+                    h: celH,
+                    pulso: 0,
+                    brilho: 0,
+                    nota: 0
+                };
+            });
+        }
+
+        function pontoNoInstrumento(x, y, inst) {
+            return Math.abs(x - inst.x) <= inst.w * 0.47 && Math.abs(y - inst.y) <= inst.h * 0.45;
+        }
+
+        function tocarSomInstrumento(tipo) {
+            if (!audioCtx) return;
+            const agora = audioCtx.currentTime + 0.01;
+            const notas = {
+                xilofone: [261.63, 329.63, 392.00, 523.25],
+                tambor: [110, 82.41, 65.41],
+                sino: [783.99, 1046.50, 1318.51],
+                maracas: [180, 240, 320]
+            }[tipo];
+
+            if (tipo === 'tambor') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, agora);
+                osc.frequency.exponentialRampToValueAtTime(55, agora + 0.16);
+                gain.gain.setValueAtTime(0.5, agora);
+                gain.gain.exponentialRampToValueAtTime(0.001, agora + 0.18);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(agora); osc.stop(agora + 0.19);
+                return;
+            }
+
+            const qtd = tipo === 'maracas' ? 4 : 3;
+            for (let i = 0; i < qtd; i++) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const inicio = agora + i * (tipo === 'maracas' ? 0.035 : 0.07);
+                const freq = notas[(Math.floor(Math.random() * notas.length))] * (tipo === 'maracas' ? (0.9 + Math.random() * 0.35) : 1);
+                osc.type = tipo === 'sino' ? 'sine' : 'triangle';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0, inicio);
+                gain.gain.linearRampToValueAtTime(tipo === 'maracas' ? 0.08 : 0.18, inicio + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.001, inicio + (tipo === 'sino' ? 0.9 : 0.22));
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(inicio); osc.stop(inicio + (tipo === 'sino' ? 0.95 : 0.25));
+            }
+        }
+
+        function criarParticulasInstrumento(x, y, cor) {
+            for (let i = 0; i < 14; i++) {
+                particulasInstrumentos.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 9,
+                    vy: -Math.random() * 7 - 1,
+                    raio: Math.random() * 5 + 2,
+                    opacidade: 1,
+                    cor
+                });
+            }
+        }
+
+        function ativarInstrumento(i) {
+            const inst = instrumentos[i];
+            if (!inst) return;
+            iniciarAudio();
+            inst.pulso = 1;
+            inst.brilho = 1;
+            inst.nota = Math.random();
+            ultimoInstrumento = i;
+            tocarSomInstrumento(inst.tipo);
+            criarParticulasInstrumento(inst.x, inst.y - inst.h * 0.05, CORES_INSTRUMENTOS[i]);
+        }
+
+        function desenharInstrumento(inst, i) {
+            const p = 1 + inst.pulso * 0.045;
+            ctx.save();
+            ctx.translate(inst.x, inst.y);
+            ctx.scale(p, p);
+
+            // Cartão grande e arredondado
+            ctx.fillStyle = 'rgba(255,255,255,0.07)';
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = CORES_INSTRUMENTOS[i];
+            ctx.beginPath();
+            const r = Math.min(inst.w, inst.h) * 0.08;
+            ctx.roundRect(-inst.w*0.47, -inst.h*0.45, inst.w*0.94, inst.h*0.9, r);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            if (inst.tipo === 'xilofone') {
+                const barW = inst.w * 0.58, barH = Math.min(inst.h * 0.12, 42);
+                const cores = ['#EF5350','#FFCA28','#66BB6A','#42A5F5','#AB47BC','#FF7043'];
+                for (let k = 0; k < 6; k++) {
+                    const yy = -barH*3 + k * barH*1.12;
+                    const ww = barW * (0.72 + k*0.055);
+                    ctx.fillStyle = cores[k];
+                    ctx.beginPath(); ctx.roundRect(-ww/2, yy, ww, barH*0.72, barH*0.25); ctx.fill();
+                }
+                ctx.fillStyle = '#C9A66B';
+                ctx.beginPath(); ctx.arc(-barW*0.58, inst.h*0.24, barH*0.34, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(barW*0.58, inst.h*0.24, barH*0.34, 0, Math.PI*2); ctx.fill();
+            } else if (inst.tipo === 'tambor') {
+                const rr = Math.min(inst.w, inst.h) * 0.25;
+                ctx.fillStyle = '#D97A36';
+                ctx.beginPath(); ctx.ellipse(0, 0, rr*1.45, rr, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#FFF3D6';
+                ctx.beginPath(); ctx.ellipse(0, -rr*0.12, rr*1.28, rr*0.68, 0, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#8D4B24'; ctx.lineWidth = Math.max(5, rr*0.07);
+                for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(k*rr*0.45, rr*0.45); ctx.lineTo(k*rr*0.35, -rr*0.5); ctx.stroke(); }
+                ctx.fillStyle = '#F4C27A';
+                ctx.beginPath(); ctx.arc(-rr*0.9, -rr*0.95, rr*0.13, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(rr*0.9, -rr*0.95, rr*0.13, 0, Math.PI*2); ctx.fill();
+            } else if (inst.tipo === 'sino') {
+                const rr = Math.min(inst.w, inst.h) * 0.24;
+                ctx.fillStyle = '#FFD54F';
+                ctx.beginPath(); ctx.arc(0, -rr*0.05, rr*0.95, Math.PI, Math.PI*2); ctx.lineTo(rr*1.05, rr*0.8); ctx.lineTo(-rr*1.05, rr*0.8); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#FFF3A0';
+                ctx.beginPath(); ctx.arc(-rr*0.3, -rr*0.35, rr*0.25, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#E0A900';
+                ctx.fillRect(-rr*0.12, rr*0.75, rr*0.24, rr*0.28);
+                ctx.beginPath(); ctx.arc(0, rr*1.02, rr*0.22, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#FFE082'; ctx.lineWidth = Math.max(5, rr*0.06);
+                ctx.beginPath(); ctx.moveTo(0, -rr*1.15); ctx.lineTo(0, -rr*0.95); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, -rr*1.25, rr*0.16, 0, Math.PI*2); ctx.fill();
+            } else {
+                const rr = Math.min(inst.w, inst.h) * 0.22;
+                [-1,1].forEach(side => {
+                    ctx.save(); ctx.translate(side*rr*0.72, 0); ctx.rotate(side*0.16);
+                    ctx.fillStyle = '#8BC34A';
+                    ctx.beginPath(); ctx.ellipse(0, 0, rr*0.72, rr*1.05, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#DFF5B0';
+                    ctx.beginPath(); ctx.ellipse(0, -rr*0.48, rr*0.55, rr*0.18, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#689F38'; ctx.lineWidth = Math.max(4, rr*0.06);
+                    for (let k=0;k<4;k++){ ctx.beginPath(); ctx.moveTo(-rr*0.45+k*rr*0.3, rr*0.15); ctx.lineTo(-rr*0.45+k*rr*0.3, rr*0.8); ctx.stroke(); }
+                    ctx.restore();
+                });
+            }
+
+            if (inst.brilho > 0) {
+                ctx.globalAlpha = inst.brilho * 0.45;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath(); ctx.arc(-inst.w*0.27, -inst.h*0.25, Math.min(inst.w, inst.h)*0.055, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        /* =================================================================
+           AQUÁRIO MÁGICO
+           ================================================================= */
+        function reconfigurarAquario() {
+            const n = 6;
+            const r = Math.min(largura, altura) * 0.055;
+            peixesAquario = Array.from({length:n}, (_, i) => ({
+                x: largura * (0.12 + Math.random()*0.76),
+                y: altura * (0.20 + Math.random()*0.58),
+                r: r * (0.95 + Math.random()*0.35),
+                vx: (0.45 + Math.random()*0.55) * (i%2 ? -1 : 1),
+                fase: Math.random()*Math.PI*2,
+                cor: CORES_PEIXES[i % CORES_PEIXES.length],
+                brilho: 0,
+                virado: i%2 ? -1 : 1,
+                cauda: 0
+            }));
+            bolhasAquario = [];
+            ondasAquario = [];
+            for (let i=0;i<18;i++) criarBolhaAquario(Math.random()*largura, altura*(0.25+Math.random()*0.7), true);
+        }
+
+        function criarBolhaAquario(x,y,solta=false) {
+            bolhasAquario.push({x,y,r:2+Math.random()*7,vx:(Math.random()-0.5)*0.35,vy:-(0.45+Math.random()*0.9),opacidade:solta?0.35:1, vida:solta?1:2});
+        }
+
+        function tocarSomPeixeAquario() {
+            if (!audioCtx) return;
+            const agora=audioCtx.currentTime+0.01;
+            const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+            osc.type='sine';
+            osc.frequency.setValueAtTime(330+Math.random()*180, agora);
+            osc.frequency.exponentialRampToValueAtTime(660+Math.random()*180, agora+0.16);
+            gain.gain.setValueAtTime(0.001, agora);
+            gain.gain.linearRampToValueAtTime(0.11, agora+0.025);
+            gain.gain.exponentialRampToValueAtTime(0.001, agora+0.38);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(agora); osc.stop(agora+0.4);
+        }
+
+        function tocarBolhaAquario() {
+            if (!audioCtx) return;
+            const agora=audioCtx.currentTime+0.01;
+            const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+            osc.type='sine'; osc.frequency.setValueAtTime(520,agora); osc.frequency.exponentialRampToValueAtTime(900,agora+0.08);
+            gain.gain.setValueAtTime(0.001,agora); gain.gain.linearRampToValueAtTime(0.055,agora+0.015); gain.gain.exponentialRampToValueAtTime(0.001,agora+0.16);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(agora); osc.stop(agora+0.18);
+        }
+
+        function tocarAquario(x,y) {
+            iniciarAudio();
+            let escolhido=null, melhor=Infinity;
+            peixesAquario.forEach(peixe=>{
+                const d=Math.hypot(x-peixe.x,y-peixe.y);
+                if(d < peixe.r*2.0 && d<melhor){melhor=d; escolhido=peixe;}
+            });
+            if(escolhido){
+                escolhido.brilho=1; escolhido.cauda=1; escolhido.vx *= -1; escolhido.virado *= -1;
+                tocarSomPeixeAquario();
+                for(let i=0;i<8;i++) criarBolhaAquario(escolhido.x+(Math.random()-0.5)*escolhido.r*1.5, escolhido.y-escolhido.r*0.3);
+                ondasAquario.push({x:escolhido.x,y:escolhido.y,r:escolhido.r*0.35,opacidade:0.75});
+            } else {
+                tocarBolhaAquario();
+                for(let i=0;i<5;i++) criarBolhaAquario(x+(Math.random()-0.5)*25,y+(Math.random()-0.5)*18);
+                ondasAquario.push({x,y,r:8,opacidade:0.6});
+            }
+        }
+
+        function desenharPeixeAquario(p, agora) {
+            const r=p.r, s=p.virado;
+            ctx.save(); ctx.translate(p.x,p.y); ctx.scale(s,1);
+            ctx.globalAlpha=1;
+            ctx.shadowBlur=p.brilho*24; ctx.shadowColor='#FFFFFF';
+            ctx.fillStyle=p.cor;
+            ctx.beginPath(); ctx.ellipse(0,0,r*1.35,r*0.78,0,0,Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-r*1.05,0); ctx.lineTo(-r*1.85,-r*0.7); ctx.lineTo(-r*1.75,r*0.7); ctx.closePath(); ctx.fill();
+            ctx.shadowBlur=0;
+            ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(r*0.25,-r*0.23,r*0.42,r*0.16,-0.25,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle='#FFFFFF'; ctx.beginPath(); ctx.arc(r*0.72,-r*0.18,r*0.22,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle='#263238'; ctx.beginPath(); ctx.arc(r*0.78,-r*0.18,r*0.10,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(r*0.81,-r*0.23,r*0.035,0,Math.PI*2); ctx.fill();
+            ctx.strokeStyle='rgba(80,50,100,0.28)'; ctx.lineWidth=Math.max(2,r*0.05);
+            ctx.beginPath(); ctx.arc(r*0.2,0,r*0.38,0.4,2.7); ctx.stroke();
+            ctx.restore();
+        }
+
+        function desenharAquarioFundo() {
+            const g=ctx.createLinearGradient(0,0,0,altura);
+            g.addColorStop(0,'#075985'); g.addColorStop(0.55,'#0891B2'); g.addColorStop(1,'#164E63');
+            ctx.fillStyle=g; ctx.fillRect(0,0,largura,altura);
+            ctx.fillStyle='rgba(255,255,255,0.08)';
+            for(let i=0;i<7;i++){
+                ctx.beginPath(); ctx.arc(largura*(0.08+i*0.16),altura*0.15,Math.min(largura,altura)*0.055,0,Math.PI*2); ctx.fill();
+            }
+            ctx.fillStyle='#166534';
+            for(let i=0;i<12;i++){
+                const x=(i+0.5)*largura/12, h=altura*(0.10+((i*37)%7)/50);
+                ctx.beginPath(); ctx.moveTo(x-8,altura); ctx.quadraticCurveTo(x-20,altura-h*0.5,x-8,altura-h); ctx.quadraticCurveTo(x+3,altura-h*0.55,x+8,altura-h*1.1); ctx.quadraticCurveTo(x+12,altura-h*0.45,x+18,altura); ctx.closePath(); ctx.fill();
+            }
+            ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.font=`bold ${Math.max(20,Math.min(30,largura*0.026))}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText('Toca nos peixinhos 🐠',largura/2,altura*0.055);
         }
 
         /* =================================================================
@@ -764,8 +1132,12 @@
                     }
                 }
             } else if (jogoAtual === 'escondidas') {
-                if (portaEscondida && Math.hypot(ptX-portaEscondida.x, ptY-(altura*0.56)) < getRaioPortaEscondida()*1.55) {
-                    abrirPortaEscondida();
+                const r = getRaioPortaEscondida();
+                for (const porta of portasEscondidas) {
+                    if (Math.hypot(ptX-porta.x, ptY-(porta.y+r*0.25)) < r*1.45) {
+                        abrirPortaEscondida(porta);
+                        break;
+                    }
                 }
             } else if (jogoAtual === 'instrumentos') {
                 for (let i = instrumentos.length - 1; i >= 0; i--) {
@@ -1101,6 +1473,31 @@
                 ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
                 ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = '#FF4081'; ctx.beginPath(); ctx.moveTo(-r*0.1, r*0.02); ctx.lineTo(r*0.1, r*0.02); ctx.lineTo(0, r*0.15); ctx.closePath(); ctx.fill();
+            } else if (tipo === 'vaca') {
+                // Vaca desenhada diretamente em Canvas: não depende de emoji/fontes.
+                ctx.fillStyle = '#F5F5F5';
+                ctx.beginPath(); ctx.ellipse(0, 0, r*0.92, r*0.86, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#3A3A3A';
+                ctx.beginPath(); ctx.ellipse(-r*0.42, -r*0.36, r*0.26, r*0.32, -0.35, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(r*0.45, r*0.05, r*0.22, r*0.30, 0.45, 0, Math.PI*2); ctx.fill();
+                // Orelhas
+                ctx.fillStyle = '#F5F5F5';
+                ctx.beginPath(); ctx.ellipse(-r*0.78, -r*0.35, r*0.30, r*0.17, -0.35, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(r*0.78, -r*0.35, r*0.30, r*0.17, 0.35, 0, Math.PI*2); ctx.fill();
+                // Chifres
+                ctx.fillStyle = '#FFE0A3';
+                ctx.beginPath(); ctx.moveTo(-r*0.52,-r*0.67); ctx.lineTo(-r*0.34,-r*1.03); ctx.lineTo(-r*0.18,-r*0.66); ctx.closePath(); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(r*0.52,-r*0.67); ctx.lineTo(r*0.34,-r*1.03); ctx.lineTo(r*0.18,-r*0.66); ctx.closePath(); ctx.fill();
+                // Focinho
+                ctx.fillStyle = '#F3A6B9';
+                ctx.beginPath(); ctx.ellipse(0, r*0.30, r*0.48, r*0.31, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#7B4C58';
+                ctx.beginPath(); ctx.arc(-r*0.17, r*0.30, r*0.055, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(r*0.17, r*0.30, r*0.055, 0, Math.PI*2); ctx.fill();
+                // Olhos
+                ctx.fillStyle = '#222';
+                ctx.beginPath(); ctx.arc(-r*0.30, -r*0.13, r*0.085, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(r*0.30, -r*0.13, r*0.085, 0, Math.PI*2); ctx.fill();
             } else if (tipo === 'cao') {
                 ctx.fillStyle = '#795548';
                 ctx.beginPath(); ctx.ellipse(-r*0.8, 0, r*0.3, r*0.6, 0.2, 0, Math.PI*2); ctx.fill();
@@ -1109,29 +1506,6 @@
                 ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, r*0.05, r*0.15, 0, Math.PI*2); ctx.fill();
                 ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
                 ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'vaca') {
-                // Vaca: desenho simples, grande e contrastado para funcionar bem no ecrã.
-                ctx.fillStyle = '#F5F5F5';
-                ctx.beginPath(); ctx.ellipse(0, r*0.05, r*0.92, r*0.78, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#6D4C41';
-                ctx.beginPath(); ctx.ellipse(-r*0.42,-r*0.18,r*0.23,r*0.30,-0.35,0,Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.42,r*0.16,r*0.20,r*0.27,0.35,0,Math.PI*2); ctx.fill();
-                // orelhas e chifres
-                ctx.fillStyle='#F5F5F5';
-                ctx.beginPath(); ctx.ellipse(-r*0.85,-r*0.32,r*0.25,r*0.15,-0.3,0,Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.85,-r*0.32,r*0.25,r*0.15,0.3,0,Math.PI*2); ctx.fill();
-                ctx.fillStyle='#FFE082';
-                ctx.beginPath(); ctx.moveTo(-r*0.48,-r*0.68); ctx.lineTo(-r*0.62,-r*0.98); ctx.lineTo(-r*0.28,-r*0.78); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(r*0.48,-r*0.68); ctx.lineTo(r*0.62,-r*0.98); ctx.lineTo(r*0.28,-r*0.78); ctx.closePath(); ctx.fill();
-                // olhos
-                ctx.fillStyle='#263238';
-                ctx.beginPath(); ctx.arc(-r*0.33,-r*0.28,r*0.10,0,Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.33,-r*0.28,r*0.10,0,Math.PI*2); ctx.fill();
-                // focinho
-                ctx.fillStyle='#F48FB1'; ctx.beginPath(); ctx.ellipse(0,r*0.34,r*0.43,r*0.27,0,0,Math.PI*2); ctx.fill();
-                ctx.fillStyle='#7E57C2';
-                ctx.beginPath(); ctx.arc(-r*0.15,r*0.34,r*0.06,0,Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.15,r*0.34,r*0.06,0,Math.PI*2); ctx.fill();
             } else if (tipo === 'porco') {
                 ctx.fillStyle = '#FF80AB';
                 ctx.beginPath(); ctx.arc(-r*0.6, -r*0.7, r*0.25, 0, Math.PI*2); ctx.fill();
@@ -1212,26 +1586,24 @@
 
                 ctx.save();
                 ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.fillStyle='rgba(255,255,255,0.96)';
+                ctx.fillStyle='rgba(255,255,255,0.94)';
                 ctx.font=`bold ${Math.max(22,Math.min(34,largura*0.028))}px sans-serif`;
-                ctx.fillText('Quem está escondido? 👀', largura/2, altura*0.075);
+                ctx.fillText('Quem está escondido? 👀', largura/2, altura*0.055);
                 ctx.font=`${Math.max(15,Math.min(23,largura*0.019))}px sans-serif`;
-                ctx.fillStyle='rgba(255,255,255,0.70)';
-                ctx.fillText(portaEscondida && portaEscondida.abertura > 0.55 ? 'Olá! 👋' : 'Bate à porta... 🚪', largura/2, altura*0.12);
+                ctx.fillStyle='rgba(255,255,255,0.68)';
+                ctx.fillText('Toca numa porta mágica!', largura/2, altura*0.095);
                 ctx.restore();
 
-                // Pequenos brilhos no fundo, para manter a identidade dos outros jogos.
+                // Pequenos elementos de cenário para dar vida ao palco.
                 ctx.save();
-                for(let i=0;i<9;i++){
-                    const x=largura*(0.06+i*0.11);
-                    const y=altura*(0.20 + (i%3)*0.23) + Math.sin(agora*0.0012+i)*8;
-                    ctx.globalAlpha=0.22 + (Math.sin(agora*0.002+i)+1)*0.08;
-                    ctx.fillStyle = i%2 ? '#7C4DFF' : '#FFD54F';
-                    ctx.beginPath(); ctx.arc(x,y,2.5+(i%3),0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='rgba(255,255,255,0.10)';
+                for(let i=0;i<5;i++){
+                    const x=largura*(0.08+i*0.21), y=altura*0.18+Math.sin(agora*0.001+i)*8;
+                    ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
                 }
                 ctx.restore();
 
-                if (portaEscondida) desenharPortaEscondida(portaEscondida,r,agora);
+                portasEscondidas.forEach(porta => desenharPortaEscondida(porta,r,agora));
 
                 for (const e of estrelasDescoberta) {
                     ctx.save(); ctx.globalAlpha=Math.max(0,e.vida); ctx.translate(e.x,e.y); ctx.rotate(e.rot);

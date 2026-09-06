@@ -1,0 +1,12 @@
+Sons dos animais
+=================
+O jogo procura primeiro ficheiros MP3 e, se não encontrar, usa OGG.
+
+Nomes esperados:
+- cao.mp3 / cao.ogg
+- gato.mp3 / gato.ogg
+- porquinho.mp3 / porquinho.ogg
+- vaca.mp3 / vaca.ogg
+- urso.mp3 / urso.ogg
+
+Pode substituir qualquer som mantendo exatamente o mesmo nome.
