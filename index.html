@@ -1015,13 +1015,13 @@
             // Duas medusas e dois cavalos-marinhos. Alguns começam escondidos
             // entre as plantas e são libertados ao tocar nas algas/corais.
             criaturasAquario = [
-                {tipo:'medusa',x:largura*.78,y:altura*.28,r:base*.070,fase:.7,brilho:0,vy:-.00058,pulo:0,espelho:1,ativa:true,entrada:0},
+                {tipo:'medusa',x:largura*.78,y:altura*.28,r:base*.070,fase:.7,brilho:0,vy:-.00058,pulo:0,espelho:1,ativa:false,entrada:0},
                 {tipo:'medusa',x:largura*.16,y:altura*.40,r:base*.062,fase:3.1,brilho:0,vy:.00060,pulo:0,espelho:-1,ativa:false,entrada:0},
-                {tipo:'cavalo',x:largura*.50,y:altura*.47,r:base*.082,fase:2.2,brilho:0,vy:-.00052,pulo:0,espelho:1,ativa:true,entrada:0},
+                {tipo:'cavalo',x:largura*.50,y:altura*.47,r:base*.082,fase:2.2,brilho:0,vy:-.00052,pulo:0,espelho:1,ativa:false,entrada:0},
                 {tipo:'cavalo',x:largura*.61,y:altura*.63,r:base*.074,fase:4.5,brilho:0,vy:.00055,pulo:0,espelho:-1,ativa:false,entrada:0}
             ];
 
-            // Apenas algas e corais no fundo. São também pontos de descoberta.
+            // Apenas algas e corais no fundo. Mantêm-se baixos (~1/3 da altura anterior) e são pontos de descoberta.
             plantasAquario = [
                 {tipo:'alga',x:.08,y:.91,esc:1.05,cor:'#28B86B',fase:1.2},
                 {tipo:'coral',x:.22,y:.91,esc:.88,cor:'#FF6F91',fase:2.1},
@@ -1081,16 +1081,18 @@
             if(plantaEscolhida){
                 plantaEscolhida.brilho=1; plantaEscolhida.pulso=1;
                 const escondidas=criaturasAquario.filter(c=>!c.ativa);
-                let c=escondidas.length ? escondidas[Math.floor(Math.random()*escondidas.length)] : criaturasAquario[Math.floor(Math.random()*criaturasAquario.length)];
-                c.ativa=true; c.entrada=1; c.pulo=1; c.brilho=1;
-                c.x=plantaEscolhida.x*largura + (Math.random()-.5)*baseAquario()*.08;
-                c.y=plantaEscolhida.y*altura - baseAquario()*.13;
-                c.vy=(Math.random()<.5?-1:1)*(0.00050+Math.random()*.00012);
-                c.espelho=Math.random()<.5?-1:1;
-                if(c.tipo==='medusa')tocarSomMedusaAquario();else tocarSomCavaloAquario();
-                for(let i=0;i<12;i++)criarBolhaAquario(c.x+(Math.random()-.5)*c.r,c.y+c.r*.4);
-                criarBrilhoAquario(c.x,c.y,c.tipo==='medusa'?'#F5B7FF':'#FFD54F',18);
-                ondasAquario.push({x:c.x,y:c.y,r:c.r*.25,opacidade:.7});
+                if(escondidas.length){
+                    const c=escondidas[Math.floor(Math.random()*escondidas.length)];
+                    c.ativa=true; c.entrada=1; c.pulo=1; c.brilho=1;
+                    c.x=plantaEscolhida.x*largura + (Math.random()-.5)*baseAquario()*.08;
+                    c.y=plantaEscolhida.y*altura - baseAquario()*.13;
+                    c.vy=(Math.random()<.5?-1:1)*(0.00050+Math.random()*.00012);
+                    c.espelho=Math.random()<.5?-1:1;
+                    if(c.tipo==='medusa')tocarSomMedusaAquario();else tocarSomCavaloAquario();
+                    for(let i=0;i<12;i++)criarBolhaAquario(c.x+(Math.random()-.5)*c.r,c.y+c.r*.4);
+                    criarBrilhoAquario(c.x,c.y,c.tipo==='medusa'?'#F5B7FF':'#FFD54F',18);
+                    ondasAquario.push({x:c.x,y:c.y,r:c.r*.25,opacidade:.7});
+                }
                 return;
             }
 
@@ -1139,14 +1141,14 @@
             ctx.shadowBlur=(p.brilho||0)*18;ctx.shadowColor=p.cor;
             if(p.tipo==='alga'){
                 ctx.fillStyle=p.cor;
-                ctx.beginPath();ctx.moveTo(-base*.018,base*.05);ctx.bezierCurveTo(-base*.08,-base*.18,-base*.035,-base*.36,-base*.01,-base*.60*s);ctx.bezierCurveTo(base*.02,-base*.39,base*.08,-base*.22,base*.025,base*.05);ctx.closePath();ctx.fill();
-                ctx.beginPath();ctx.moveTo(base*.005,base*.05);ctx.bezierCurveTo(-base*.01,-base*.20,base*.07,-base*.42,base*.10,-base*.68*s);ctx.bezierCurveTo(base*.15,-base*.42,base*.13,-base*.17,base*.06,base*.05);ctx.closePath();ctx.fill();
+                ctx.beginPath();ctx.moveTo(-base*.018,base*.05);ctx.bezierCurveTo(-base*.08,-base*.18,-base*.035,-base*.36,-base*.01,-base*.20*s);ctx.bezierCurveTo(base*.02,-base*.39,base*.08,-base*.22,base*.025,base*.05);ctx.closePath();ctx.fill();
+                ctx.beginPath();ctx.moveTo(base*.005,base*.05);ctx.bezierCurveTo(-base*.01,-base*.20,base*.07,-base*.42,base*.10,-base*.23*s);ctx.bezierCurveTo(base*.15,-base*.42,base*.13,-base*.17,base*.06,base*.05);ctx.closePath();ctx.fill();
             }else{
                 ctx.strokeStyle=p.cor;ctx.lineWidth=base*.022;ctx.lineCap='round';
                 for(let i=-2;i<=2;i++){
-                    ctx.beginPath();ctx.moveTo(i*base*.028,base*.05);ctx.bezierCurveTo(i*base*.045,-base*.08,i*base*.02,-base*.18,i*base*.055,-base*(.34+Math.abs(i)*.035)*s);ctx.stroke();
+                    ctx.beginPath();ctx.moveTo(i*base*.028,base*.05);ctx.bezierCurveTo(i*base*.045,-base*.08,i*base*.02,-base*.18,i*base*.055,-base*(.115+Math.abs(i)*.012)*s);ctx.stroke();
                 }
-                ctx.fillStyle='rgba(255,255,255,.20)';ctx.beginPath();ctx.arc(-base*.055,-base*.18,base*.012,0,Math.PI*2);ctx.fill();
+                ctx.fillStyle='rgba(255,255,255,.20)';ctx.beginPath();ctx.arc(-base*.055,-base*.06,base*.012,0,Math.PI*2);ctx.fill();
             }
             ctx.restore();
         }
