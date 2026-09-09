@@ -1,0 +1,4 @@
+Aquário Mágico — criaturas
+
+medusa.png: imagem fornecida pelo utilizador.
+cavalo_marinho.png: imagem fornecida pelo utilizador; fundo branco removido para permitir transparência no jogo.
