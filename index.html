@@ -1023,25 +1023,26 @@
 
             // Apenas algas e corais no fundo. São também pontos de descoberta.
             plantasAquario = [
-                {tipo:'alga',x:.035,y:.92,esc:.95,cor:'#168F55',fase:.2},
-                {tipo:'alga',x:.075,y:.87,esc:1.25,cor:'#28B86B',fase:1.2},
-                {tipo:'coral',x:.125,y:.91,esc:1.05,cor:'#FF6F91',fase:2.1},
-                {tipo:'alga',x:.205,y:.93,esc:.82,cor:'#0F7D58',fase:3.0},
-                {tipo:'coral',x:.285,y:.90,esc:.82,cor:'#FF8A65',fase:1.7},
-                {tipo:'alga',x:.38,y:.94,esc:1.12,cor:'#24A96B',fase:2.8},
-                {tipo:'coral',x:.48,y:.92,esc:.70,cor:'#BA68C8',fase:.8},
-                {tipo:'alga',x:.58,y:.94,esc:.95,cor:'#159A63',fase:3.8},
-                {tipo:'coral',x:.69,y:.91,esc:.92,cor:'#FF7096',fase:2.5},
-                {tipo:'alga',x:.78,y:.94,esc:1.22,cor:'#25A96B',fase:1.1},
-                {tipo:'coral',x:.875,y:.90,esc:1.00,cor:'#FF8A65',fase:3.4},
-                {tipo:'alga',x:.95,y:.92,esc:1.05,cor:'#168F55',fase:4.2}
+                {tipo:'alga',x:.08,y:.91,esc:1.05,cor:'#28B86B',fase:1.2},
+                {tipo:'coral',x:.22,y:.91,esc:.88,cor:'#FF6F91',fase:2.1},
+                {tipo:'alga',x:.47,y:.93,esc:1.08,cor:'#24A96B',fase:2.8},
+                {tipo:'coral',x:.73,y:.91,esc:.92,cor:'#BA68C8',fase:.8},
+                {tipo:'alga',x:.91,y:.91,esc:1.10,cor:'#25A96B',fase:1.1}
             ];
             bolhasAquario=[]; ondasAquario=[]; brilhosAquario=[];
             for(let i=0;i<30;i++) criarBolhaAquario(Math.random()*largura,altura*(0.10+Math.random()*0.78),true);
         }
 
         function criarBolhaAquario(x,y,solta=false) {
-            bolhasAquario.push({x,y,r:2+Math.random()*6,vx:(Math.random()-0.5)*0.00022,vy:-(0.00065+Math.random()*0.00075),opacidade:solta?0.25:1,vida:solta?1:2});
+            bolhasAquario.push({
+                x,y,
+                r:2+Math.random()*6,
+                vx:(Math.random()-0.5)*0.00022,
+                vy:-(0.00065+Math.random()*0.00075),
+                opacidade:solta?0.25:1,
+                vida:solta?1:180,
+                temporaria:!solta
+            });
         }
         function criarBrilhoAquario(x,y,cor='#FFF176',n=12) {
             for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,f=0.001+Math.random()*0.003;brilhosAquario.push({x,y,vx:Math.cos(a)*f,vy:Math.sin(a)*f,r:2+Math.random()*4,vida:1,cor});}
@@ -1123,13 +1124,13 @@
             const bob=Math.sin(agora*.001+c.fase)*c.r*.10;const pulo=c.pulo;
             const y=c.y+bob-pulo*c.r*.65;
             const escala=1+pulo*.12;const w=c.r*2.2*escala,h=c.r*2.2*escala;
-            ctx.save();ctx.translate(c.x,y);ctx.scale(c.espelho*escala,escala);ctx.globalAlpha=Math.min(1,0.25+c.entrada*.75);ctx.shadowBlur=c.brilho*24;ctx.shadowColor='#F5B7FF';ctx.drawImage(IMG_MEDUSA_AQUARIO,-w/2,-h/2,w,h);ctx.restore();
+            ctx.save();ctx.translate(c.x,y);ctx.scale(c.espelho*escala,escala);ctx.globalAlpha=Math.min(1,0.65+c.entrada*.35);ctx.shadowBlur=c.brilho*24;ctx.shadowColor='#F5B7FF';ctx.drawImage(IMG_MEDUSA_AQUARIO,-w/2,-h/2,w,h);ctx.restore();
         }
         function desenharCavaloAquario(c,agora){
             if(!IMG_CAVALO_MARINHO_AQUARIO.complete||!IMG_CAVALO_MARINHO_AQUARIO.naturalWidth)return;
             const bob=Math.sin(agora*.001+c.fase)*c.r*.08;const y=c.y+bob-c.pulo*c.r*.65;const escala=1+c.pulo*.10;
             const ratio=IMG_CAVALO_MARINHO_AQUARIO.naturalWidth/IMG_CAVALO_MARINHO_AQUARIO.naturalHeight;const h=c.r*2.25*escala,w=h*ratio;
-            ctx.save();ctx.translate(c.x,y);ctx.scale(c.espelho*escala,escala);ctx.globalAlpha=Math.min(1,0.25+c.entrada*.75);ctx.shadowBlur=c.brilho*20;ctx.shadowColor='#FFD54F';ctx.drawImage(IMG_CAVALO_MARINHO_AQUARIO,-w/2,-h/2,w,h);ctx.restore();
+            ctx.save();ctx.translate(c.x,y);ctx.scale(c.espelho*escala,escala);ctx.globalAlpha=Math.min(1,0.65+c.entrada*.35);ctx.shadowBlur=c.brilho*20;ctx.shadowColor='#FFD54F';ctx.drawImage(IMG_CAVALO_MARINHO_AQUARIO,-w/2,-h/2,w,h);ctx.restore();
         }
         function desenharPlantaAquario(p,agora){
             const x=p.x*largura, y=p.y*altura, base=baseAquario(), s=p.esc;
@@ -1743,10 +1744,17 @@
 
             } else if (jogoAtual === 'aquario') {
                 desenharAquarioFundo(agora);
-                for(const b of bolhasAquario){
+                for(let i=bolhasAquario.length-1;i>=0;i--){
+                    const b=bolhasAquario[i];
                     b.x+=b.vx; b.y+=b.vy;
-                    if(b.y<altura*.07){b.y=altura*.97;b.x=Math.random()*largura;b.opacidade=.25;}
-                    ctx.save();ctx.globalAlpha=Math.max(.05,Math.min(.72,b.opacidade));ctx.strokeStyle='rgba(255,255,255,.82)';ctx.lineWidth=Math.max(1.5,b.r*.12);ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.75)';ctx.beginPath();ctx.arc(b.x-b.r*.28,b.y-b.r*.28,b.r*.18,0,Math.PI*2);ctx.fill();ctx.restore();
+                    if(b.temporaria){
+                        b.vida-=1;
+                        if(b.vida<55) b.opacidade=Math.min(b.opacidade,(b.vida/55)*.85);
+                        if(b.vida<=0){bolhasAquario.splice(i,1);continue;}
+                    } else if(b.y<altura*.07){
+                        b.y=altura*.97;b.x=Math.random()*largura;b.opacidade=.25;
+                    }
+                    ctx.save();ctx.globalAlpha=Math.max(.02,Math.min(.72,b.opacidade));ctx.strokeStyle='rgba(255,255,255,.82)';ctx.lineWidth=Math.max(1.5,b.r*.12);ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.75)';ctx.beginPath();ctx.arc(b.x-b.r*.28,b.y-b.r*.28,b.r*.18,0,Math.PI*2);ctx.fill();ctx.restore();
                 }
                 peixesAquario.forEach(peixe=>{
                     peixe.x+=peixe.vx*largura*multiplicadorRitmo; peixe.y+=Math.sin(agora*.0012+peixe.fase)*baseAquario()*.00045;
