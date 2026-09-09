@@ -1,0 +1,12 @@
+Aquário Mágico - ilustrações locais
+
+Peixes utilizados nesta versão:
+- peixe_azul_listrado.png
+- peixe_palhaco.png
+- baiacu.png
+- peixe_azul_rosa.png
+- peixe_turquesa.png
+- peixe_dourado.png
+- peixe_vermelho.png
+
+As restantes ilustrações de peixes da versão anterior foram removidas para manter o cenário mais limpo.
