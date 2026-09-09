@@ -1012,9 +1012,11 @@
                 imgIndex:ordem[i]
             }));
             criaturasAquario = [
-                {tipo:'medusa',x:largura*0.79,y:altura*0.24,r:base*0.070,fase:0.7,brilho:0,vx:-0.00008,pulo:0,alvoY:0,espelho:1},
-                {tipo:'medusa',x:largura*0.16,y:altura*0.38,r:base*0.062,fase:3.1,brilho:0,vx:0.00007,pulo:0,alvoY:0,espelho:-1},
-                {tipo:'cavalo',x:largura*0.52,y:altura*0.57,r:base*0.090,fase:2.2,brilho:0,vx:0.00006,pulo:0,alvoY:0,espelho:1}
+                // As criaturas nadam verticalmente; ao toque invertem o sentido e o lado para onde olham.
+                {tipo:'medusa',x:largura*0.79,y:altura*0.27,r:base*0.070,fase:0.7,brilho:0,vy:-0.00010,pulo:0,espelho:1},
+                {tipo:'medusa',x:largura*0.17,y:altura*0.39,r:base*0.062,fase:3.1,brilho:0,vy:0.00009,pulo:0,espelho:-1},
+                {tipo:'cavalo',x:largura*0.50,y:altura*0.48,r:base*0.082,fase:2.2,brilho:0,vy:-0.000075,pulo:0,espelho:1},
+                {tipo:'cavalo',x:largura*0.61,y:altura*0.63,r:base*0.074,fase:4.5,brilho:0,vy:0.000085,pulo:0,espelho:-1}
             ];
             objetosAquario = [
                 {tipo:'tesouro',x:largura*0.57,y:altura*0.84,r:base*0.075,brilho:0,aberto:0,fase:1.3},
@@ -1048,7 +1050,14 @@
             iniciarAudio(); let escolhido=null,melhor=Infinity;
             peixesAquario.forEach(p=>{const d=Math.hypot(x-p.x,y-p.y);if(d<p.r*2.15&&d<melhor){melhor=d;escolhido=p;}});
             if(escolhido){escolhido.brilho=1;escolhido.cauda=1;escolhido.vx*=-1;tocarSomPeixeAquario();for(let i=0;i<10;i++)criarBolhaAquario(escolhido.x+(Math.random()-.5)*escolhido.r*1.4,escolhido.y-escolhido.r*.3);criarBrilhoAquario(escolhido.x,escolhido.y,'#FFF176',12);ondasAquario.push({x:escolhido.x,y:escolhido.y,r:escolhido.r*.35,opacidade:.75});return;}
-            for(const c of criaturasAquario){const d=Math.hypot(x-c.x,y-c.y);if(d<c.r*1.25){c.brilho=1;c.pulo=1;c.alvoY=c.y-baseAquario()*.07;if(c.tipo==='medusa')tocarSomMedusaAquario();else tocarSomCavaloAquario();for(let i=0;i<8;i++)criarBolhaAquario(c.x+(Math.random()-.5)*c.r,c.y+c.r*.4);criarBrilhoAquario(c.x,c.y,c.tipo==='medusa'?'#F5B7FF':'#FFD54F',14);ondasAquario.push({x:c.x,y:c.y,r:c.r*.3,opacidade:.65});return;}}
+            for(const c of criaturasAquario){const d=Math.hypot(x-c.x,y-c.y);if(d<c.r*1.25){
+                c.brilho=1; c.pulo=1;
+                // Toque = pequeno salto + inversão vertical + mudança do lado para onde olha.
+                c.vy *= -1; c.espelho *= -1;
+                if(c.tipo==='medusa')tocarSomMedusaAquario();else tocarSomCavaloAquario();
+                for(let i=0;i<8;i++)criarBolhaAquario(c.x+(Math.random()-.5)*c.r,c.y+c.r*.4);
+                criarBrilhoAquario(c.x,c.y,c.tipo==='medusa'?'#F5B7FF':'#FFD54F',14);
+                ondasAquario.push({x:c.x,y:c.y,r:c.r*.3,opacidade:.65});return;}}
             for(const o of objetosAquario){const d=Math.hypot(x-o.x,y-o.y);if(d<o.r*2){o.brilho=1;if(o.tipo==='tesouro'){o.aberto=1;tocarSomTesouroAquario();}else tocarBolhaAquario();criarBrilhoAquario(o.x,o.y,'#FFD54F',18);return;}}
             tocarBolhaAquario();for(let i=0;i<5;i++)criarBolhaAquario(x+(Math.random()-.5)*25,y+(Math.random()-.5)*18);ondasAquario.push({x,y,r:8,opacidade:.6});
         }
@@ -1685,8 +1694,10 @@
                 criaturasAquario.forEach(c=>{
                     c.brilho*=.90;c.pulo*=.86;
                     if(c.pulo<.01)c.pulo=0;
-                    c.x+=c.vx*largura*multiplicadorRitmo;
-                    if(c.x<-c.r*2.2)c.x=largura+c.r*2.2;if(c.x>largura+c.r*2.2)c.x=-c.r*2.2;
+                    c.y+=c.vy*altura*multiplicadorRitmo;
+                    const limiteTopo=altura*.15+c.r*1.15, limiteFundo=altura*.73-c.r*.8;
+                    if(c.y<limiteTopo){c.y=limiteTopo;c.vy=Math.abs(c.vy);c.espelho*=-1;}
+                    if(c.y>limiteFundo){c.y=limiteFundo;c.vy=-Math.abs(c.vy);c.espelho*=-1;}
                     if(c.tipo==='medusa')desenharMedusaAquario(c,agora);else desenharCavaloAquario(c,agora);
                 });
                 objetosAquario.forEach(o=>{o.brilho*=.90;o.aberto*=.985;desenharObjetoAquario(o,agora);});
