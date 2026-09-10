@@ -574,13 +574,24 @@
            descoberta: olhos/orelhas espreitam, a porta abre, o animal
            salta para fora e depois muda para outro animal.
            ================================================================= */
+        // Animais em PNG local: podes substituir qualquer imagem sem alterar o jogo.
         const ANIMAIS_ESCONDIDOS = [
-            { tipo:'urso',  nome:'Urso',      cor:'#9C6B4F' },
-            { tipo:'vaca',  nome:'Vaca',      cor:'#66BB6A' },
-            { tipo:'gato',  nome:'Gato',      cor:'#FF9F43' },
-            { tipo:'cao',   nome:'Cão',       cor:'#42A5F5' },
-            { tipo:'porco', nome:'Porquinho', cor:'#EC6FA8' }
+            { tipo:'urso',    nome:'Urso',       cor:'#9C6B4F', imagem:'assets/animais/urso.png' },
+            { tipo:'vaca',    nome:'Vaca',       cor:'#66BB6A', imagem:'assets/animais/vaca.png' },
+            { tipo:'gato',    nome:'Gato',       cor:'#FF9F43', imagem:'assets/animais/gato.png' },
+            { tipo:'cao',     nome:'Cão',        cor:'#42A5F5', imagem:'assets/animais/cao.png' },
+            { tipo:'porco',  nome:'Porquinho',  cor:'#EC6FA8', imagem:'assets/animais/porquinho.png' },
+            { tipo:'ovelha', nome:'Ovelha',      cor:'#B8C8D8', imagem:'assets/animais/ovelha.png' },
+            { tipo:'cavalo', nome:'Cavalo',      cor:'#B56B3A', imagem:'assets/animais/cavalo.png' },
+            { tipo:'galo',   nome:'Galo',        cor:'#E74C3C', imagem:'assets/animais/galo.png' },
+            { tipo:'pato',   nome:'Pato',        cor:'#F4B400', imagem:'assets/animais/pato.png' }
         ];
+        const IMAGENS_ANIMAIS_ESCONDIDOS = {};
+        ANIMAIS_ESCONDIDOS.forEach(animal => {
+            const img = new Image();
+            img.src = animal.imagem;
+            IMAGENS_ANIMAIS_ESCONDIDOS[animal.tipo] = img;
+        });
         let portasEscondidas = [];
         let estrelasDescoberta = [];
         let ultimoEventoEscondido = 0;
@@ -596,6 +607,24 @@
             return opcoes[Math.floor(Math.random() * opcoes.length)] || ANIMAIS_ESCONDIDOS[0];
         }
 
+        function escolherAnimaisIniciaisEscondidos() {
+            const baralho = [...ANIMAIS_ESCONDIDOS];
+            for (let i = baralho.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [baralho[i], baralho[j]] = [baralho[j], baralho[i]];
+            }
+            return baralho.slice(0, 3);
+        }
+
+        function escolherAnimalParaPorta(portaIndex, exceptoTipo) {
+            const usados = portasEscondidas
+                .map((p, i) => i === portaIndex ? null : p.animal && p.animal.tipo)
+                .filter(Boolean);
+            const opcoes = ANIMAIS_ESCONDIDOS.filter(a => a.tipo !== exceptoTipo && !usados.includes(a.tipo));
+            const reserva = ANIMAIS_ESCONDIDOS.filter(a => a.tipo !== exceptoTipo);
+            return (opcoes.length ? opcoes : reserva)[Math.floor(Math.random() * (opcoes.length ? opcoes.length : reserva.length))];
+        }
+
         function reconfigurarEsconderijos() {
             const r = getRaioPortaEscondida();
             const portrait = altura > largura;
@@ -604,9 +633,9 @@
                 : [{x:largura*0.20,y:altura*0.58},{x:largura*0.50,y:altura*0.58},{x:largura*0.80,y:altura*0.58}];
 
             const anteriores = portasEscondidas;
+            const novos = anteriores.length ? anteriores.map(p => p.animal) : escolherAnimaisIniciaisEscondidos();
             portasEscondidas = pos.map((pt,i) => {
-                const anterior = anteriores[i];
-                const animal = anterior ? anterior.animal : ANIMAIS_ESCONDIDOS[i % ANIMAIS_ESCONDIDOS.length];
+                const animal = novos[i] || ANIMAIS_ESCONDIDOS[i];
                 return {
                     x:pt.x, y:pt.y, animal,
                     aberta:false, abertura:0, salto:0, brilho:0,
@@ -646,7 +675,7 @@
                     porta.proximoAnimal = agora + 500;
                 }
                 if (!porta.aberta && porta.proximoAnimal && agora >= porta.proximoAnimal) {
-                    const novo = escolherAnimalDiferente(porta.animal.tipo);
+                    const novo = escolherAnimalParaPorta(portasEscondidas.indexOf(porta), porta.animal.tipo);
                     porta.animal = novo;
                     porta.proximoAnimal = 0;
                     porta.piscou = false;
@@ -951,8 +980,6 @@
                 ctx.font=`bold ${Math.max(38,base*.11)}px serif`;ctx.textAlign='center';ctx.fillStyle='#FFE082';ctx.shadowColor='#FFB300';ctx.shadowBlur=15;ctx.fillText(n.glyph,0,0);
                 ctx.font=`bold ${Math.max(17,base*.035)}px sans-serif`;ctx.fillStyle='#FFFFFF';ctx.shadowBlur=8;ctx.fillText(n.nome,0,base*.065);ctx.restore();
             });
-            // pequenos reflexos
-            ctx.save();ctx.globalAlpha=.65;ctx.fillStyle='#FFF';ctx.font=`${Math.max(16,base*.028)}px sans-serif`;ctx.textAlign='center';ctx.fillText('Toca nas teclas 🎵',largura/2,altura*.205);ctx.restore();
         }
 
         /* =================================================================
@@ -1705,88 +1732,13 @@
         }
 
         function desenharIlustracaoAnimal(x, y, tipo, r) {
+            const img = IMAGENS_ANIMAIS_ESCONDIDOS[tipo];
+            if (!img || !img.complete || !img.naturalWidth) return;
+            const lado = r * 2.05;
             ctx.save();
             ctx.translate(x, y);
-
-            if (tipo === 'urso') {
-                ctx.fillStyle = '#8B4513';
-                ctx.beginPath(); ctx.arc(-r*0.7, -r*0.7, r*0.35, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.7, -r*0.7, r*0.35, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#D2B48C'; ctx.beginPath(); ctx.arc(0, r*0.2, r*0.45, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, r*0.05, r*0.12, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(-r*0.35, -r*0.2, r*0.1, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.2, r*0.1, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'coelho') {
-                ctx.fillStyle = '#FFFFFF';
-                ctx.beginPath(); ctx.ellipse(-r*0.35, -r*0.9, r*0.2, r*0.6, -0.2, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.35, -r*0.9, r*0.2, r*0.6, 0.2, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FFB6C1';
-                ctx.beginPath(); ctx.ellipse(-r*0.35, -r*0.9, r*0.1, r*0.4, -0.2, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.35, -r*0.9, r*0.1, r*0.4, 0.2, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = 'rgba(255, 182, 193, 0.6)';
-                ctx.beginPath(); ctx.arc(-r*0.4, r*0.15, r*0.18, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.4, r*0.15, r*0.18, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222';
-                ctx.beginPath(); ctx.arc(-r*0.3, -r*0.1, r*0.12, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.3, -r*0.1, r*0.12, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FF4081'; ctx.beginPath(); ctx.ellipse(0, r*0.08, r*0.1, r*0.06, 0, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'pintainho') {
-                ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FF8C00'; ctx.beginPath(); ctx.moveTo(-r*0.2, r*0.05); ctx.lineTo(r*0.2, r*0.05); ctx.lineTo(0, r*0.35); ctx.closePath(); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'gato') {
-                ctx.fillStyle = '#FF9800';
-                ctx.beginPath(); ctx.moveTo(-r*0.7, -r*0.3); ctx.lineTo(-r*0.5, -r*1.1); ctx.lineTo(-r*0.1, -r*0.5); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(r*0.7, -r*0.3); ctx.lineTo(r*0.5, -r*1.1); ctx.lineTo(r*0.1, -r*0.5); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FF4081'; ctx.beginPath(); ctx.moveTo(-r*0.1, r*0.02); ctx.lineTo(r*0.1, r*0.02); ctx.lineTo(0, r*0.15); ctx.closePath(); ctx.fill();
-            } else if (tipo === 'vaca') {
-                // Vaca desenhada diretamente em Canvas: não depende de emoji/fontes.
-                ctx.fillStyle = '#F5F5F5';
-                ctx.beginPath(); ctx.ellipse(0, 0, r*0.92, r*0.86, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#3A3A3A';
-                ctx.beginPath(); ctx.ellipse(-r*0.42, -r*0.36, r*0.26, r*0.32, -0.35, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.45, r*0.05, r*0.22, r*0.30, 0.45, 0, Math.PI*2); ctx.fill();
-                // Orelhas
-                ctx.fillStyle = '#F5F5F5';
-                ctx.beginPath(); ctx.ellipse(-r*0.78, -r*0.35, r*0.30, r*0.17, -0.35, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.78, -r*0.35, r*0.30, r*0.17, 0.35, 0, Math.PI*2); ctx.fill();
-                // Chifres
-                ctx.fillStyle = '#FFE0A3';
-                ctx.beginPath(); ctx.moveTo(-r*0.52,-r*0.67); ctx.lineTo(-r*0.34,-r*1.03); ctx.lineTo(-r*0.18,-r*0.66); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(r*0.52,-r*0.67); ctx.lineTo(r*0.34,-r*1.03); ctx.lineTo(r*0.18,-r*0.66); ctx.closePath(); ctx.fill();
-                // Focinho
-                ctx.fillStyle = '#F3A6B9';
-                ctx.beginPath(); ctx.ellipse(0, r*0.30, r*0.48, r*0.31, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#7B4C58';
-                ctx.beginPath(); ctx.arc(-r*0.17, r*0.30, r*0.055, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.17, r*0.30, r*0.055, 0, Math.PI*2); ctx.fill();
-                // Olhos
-                ctx.fillStyle = '#222';
-                ctx.beginPath(); ctx.arc(-r*0.30, -r*0.13, r*0.085, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.30, -r*0.13, r*0.085, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'cao') {
-                ctx.fillStyle = '#795548';
-                ctx.beginPath(); ctx.ellipse(-r*0.8, 0, r*0.3, r*0.6, 0.2, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.8, 0, r*0.3, r*0.6, -0.2, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#D7CCC8'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, r*0.05, r*0.15, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'porco') {
-                ctx.fillStyle = '#FF80AB';
-                ctx.beginPath(); ctx.arc(-r*0.6, -r*0.7, r*0.25, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.6, -r*0.7, r*0.25, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FF4081'; ctx.beginPath(); ctx.ellipse(0, r*0.1, r*0.35, r*0.25, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
-            }
+            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(img, -lado/2, -lado/2, lado, lado);
             ctx.restore();
         }
 
