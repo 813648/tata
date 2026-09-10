@@ -1769,8 +1769,15 @@
                     if(c.pulo<.01)c.pulo=0;
                     if(!c.ativa)return;
                     c.y+=c.vy*altura*multiplicadorRitmo;
-                    const limiteTopo=altura*.15+c.r*1.15, limiteFundo=altura*.73-c.r*.8;
-                    if(c.y<limiteTopo){c.y=limiteTopo;c.vy=Math.abs(c.vy);c.espelho*=-1;}
+                    const limiteTopo=altura*.10+c.r*.35, limiteFundo=altura*.73-c.r*.8;
+                    // Ao chegar ao topo, a criatura sai do aquário e fica novamente escondida.
+                    if(c.y<limiteTopo){
+                        c.ativa=false;
+                        c.entrada=0;
+                        c.pulo=0;
+                        c.brilho=0;
+                        return;
+                    }
                     if(c.y>limiteFundo){c.y=limiteFundo;c.vy=-Math.abs(c.vy);c.espelho*=-1;}
                     if(c.tipo==='medusa')desenharMedusaAquario(c,agora);else desenharCavaloAquario(c,agora);
                 });
