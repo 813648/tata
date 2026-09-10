@@ -1849,12 +1849,19 @@
                 }
 
             } else if (jogoAtual === 'piano') {
-                iniciarAudio();
-                let escolhida=null;
-                // Pretas primeiro para preservar a sensação de teclado real.
-                for(const t of teclasPiano.filter(t=>!t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
-                if(!escolhida) for(const t of teclasPiano.filter(t=>t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
-                if(escolhida) ativarTeclaPiano(escolhida);
+                // O piano é desenhado aqui; a deteção do toque pertence ao handler de toque.
+                teclasPiano.forEach(t => {
+                    t.pressionada *= 0.88;
+                    if (t.pressionada < 0.02) t.pressionada = 0;
+                });
+                for (let i = notasPianoAtivas.length - 1; i >= 0; i--) {
+                    const n = notasPianoAtivas[i];
+                    n.x += Math.sin((1-n.vida)*8 + i) * 0.35;
+                    n.y += n.vy;
+                    n.vida -= 0.018;
+                    if (n.vida <= 0) notasPianoAtivas.splice(i,1);
+                }
+                desenharPiano();
             } else if (jogoAtual === 'instrumentos') {
                 particulasInstrumentos.forEach(p => {
                     p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.opacidade -= 0.035;
