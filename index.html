@@ -467,6 +467,18 @@
         let instrumentos = [];
         let teclasPiano = [];
         let notasPianoAtivas = [];
+        let instrumentoPianoAtual = 'Órgão';
+        let botoesInstrumentoPiano = [];
+        const INSTRUMENTOS_PIANO = [
+            {nome:'Órgão', tipo:'orgao', simbolo:'🎹'},
+            {nome:'Bass', tipo:'bass', simbolo:'🎸'},
+            {nome:'Steel Drum', tipo:'steel', simbolo:'🥁'},
+            {nome:'Tub Bells', tipo:'bells', simbolo:'🔔'},
+            {nome:'Guitar', tipo:'guitar', simbolo:'🎸'},
+            {nome:'Marimba', tipo:'marimba', simbolo:'🪵'},
+            {nome:'Vibraphone', tipo:'vibra', simbolo:'✨'},
+            {nome:'Piano', tipo:'piano', simbolo:'🎼'}
+        ];
         const NOTAS_PIANO = [
             {nome:'Dó',freq:261.63,branca:true,glyph:'♩'}, {nome:'Ré',freq:293.66,branca:true,glyph:'♪'},
             {nome:'Mi',freq:329.63,branca:true,glyph:'♫'}, {nome:'Fá',freq:349.23,branca:true,glyph:'♩'},
@@ -828,6 +840,14 @@
             const margem = largura * 0.055;
             const larguraTecla = (largura - margem*2) / 7;
             const alturaTecla = Math.min(altura*0.58, base*0.72);
+            botoesInstrumentoPiano = [];
+            const areaX = largura * .055, areaW = largura * .89;
+            const gap = Math.max(4, base*.008);
+            const bw = (areaW-gap*7)/8;
+            const by = altura*.155, bh = Math.min(base*.075, altura*.065);
+            INSTRUMENTOS_PIANO.forEach((inst,i)=>botoesInstrumentoPiano.push({
+                ...inst, x:areaX+i*(bw+gap), y:by, w:bw, h:bh
+            }));
             teclasPiano = [];
             const brancas = NOTAS_PIANO.filter(n=>n.branca);
             brancas.forEach((n,i)=>teclasPiano.push({
@@ -852,16 +872,33 @@
             iniciarAudio();
             const agora=audioCtx.currentTime+0.005;
             const master=audioCtx.createGain();
+            const tipo=INSTRUMENTOS_PIANO.find(i=>i.nome===instrumentoPianoAtual)?.tipo || 'orgao';
+            const dur=tipo==='bells'||tipo==='steel'?1.8:tipo==='bass'?0.8:1.25;
             master.gain.setValueAtTime(0.0001,agora);
-            master.gain.exponentialRampToValueAtTime(0.24,agora+0.012);
-            master.gain.exponentialRampToValueAtTime(0.001,agora+1.15);
+            master.gain.exponentialRampToValueAtTime(tipo==='bass'?.30:.23,agora+0.012);
+            master.gain.exponentialRampToValueAtTime(0.001,agora+dur);
             master.connect(audioCtx.destination);
-            [1,2,3,4].forEach((mult,i)=>{
+            const partials = {
+                orgao:[[1,'sine',1],[2,'sine',.32],[3,'sine',.12],[4,'sine',.045]],
+                bass:[[1,'triangle',1],[2,'sine',.20],[.5,'sine',.16]],
+                steel:[[1,'sine',1],[2.01,'sine',.38],[3.98,'triangle',.16],[6.99,'sine',.06]],
+                bells:[[1,'sine',1],[2.71,'sine',.30],[4.07,'sine',.16],[6.8,'sine',.07]],
+                guitar:[[1,'triangle',1],[2,'triangle',.28],[3,'sine',.10],[5,'sine',.035]],
+                marimba:[[1,'sine',1],[3.0,'sine',.18],[4.2,'triangle',.07]],
+                vibra:[[1,'sine',1],[2,'sine',.22],[3,'sine',.09],[4.01,'sine',.04]],
+                piano:[[1,'sine',1],[2,'triangle',.18],[3,'sine',.07],[4,'triangle',.025]]
+            }[tipo];
+            partials.forEach(([mult,wave,level])=>{
                 const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
-                osc.type=i===0?'sine':'triangle'; osc.frequency.value=nota.freq*mult;
-                g.gain.value=[1,.18,.07,.025][i]; osc.connect(g); g.connect(master);
-                osc.start(agora); osc.stop(agora+1.2);
+                osc.type=wave; osc.frequency.value=nota.freq*mult;
+                g.gain.value=level; osc.connect(g); g.connect(master);
+                osc.start(agora); osc.stop(agora+dur+.05);
             });
+        }
+
+        function tocarInstrumentoPiano(nome){
+            instrumentoPianoAtual=nome;
+            tocarNotaPiano({freq:392,nome:'Sol',glyph:'♪'});
         }
 
         function ativarTeclaPiano(t){
@@ -878,12 +915,20 @@
             ctx.beginPath(); ctx.roundRect(largura*.035,altura*.15,largura*.93,altura*.72,base*.025); ctx.fill();
             ctx.shadowBlur=0;
             ctx.fillStyle='rgba(255,214,102,.18)'; ctx.beginPath(); ctx.roundRect(largura*.055,altura*.17,largura*.89,altura*.06,base*.015); ctx.fill();
-            // Tubos de órgão
-            for(let i=0;i<7;i++){
-                const x=largura*.18+i*largura*.105, h=base*(.08+(i%4)*.018);
-                ctx.fillStyle=['#FFD54F','#FFB74D','#90CAF9','#CE93D8','#80CBC4'][i%5];
-                ctx.beginPath(); ctx.roundRect(x,altura*.175-h*.45,base*.025,h,base*.012); ctx.fill();
-            }
+            // Selector mágico de timbres — no lugar dos tubos de órgão
+            botoesInstrumentoPiano.forEach((b,i)=>{
+                const ativo=b.nome===instrumentoPianoAtual;
+                ctx.fillStyle=ativo?'#FFE082':'rgba(255,255,255,.92)';
+                ctx.strokeStyle=ativo?'#FF8F00':'rgba(92,67,54,.55)';
+                ctx.lineWidth=ativo?3:1.5;
+                ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,base*.012); ctx.fill(); ctx.stroke();
+                ctx.fillStyle=ativo?'#6D3B00':'#4E4038';
+                ctx.font=`bold ${Math.max(10,Math.min(16,base*.024))}px sans-serif`;
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillText(b.nome,b.x+b.w/2,b.y+b.h/2);
+                if(ativo){ctx.fillStyle='#FF9800';ctx.beginPath();ctx.arc(b.x+b.w*.12,b.y+b.h/2,base*.008,0,Math.PI*2);ctx.fill();}
+            });
+            ctx.textBaseline='alphabetic';
             // Teclas brancas
             teclasPiano.filter(t=>t.branca).forEach((t,i)=>{
                 const p=t.pressionada;
@@ -1358,6 +1403,9 @@
                 }
             } else if (jogoAtual === 'piano') {
                 iniciarAudio();
+                for(const b of botoesInstrumentoPiano){
+                    if(pontoNaTeclaPiano(ptX,ptY,b)){ tocarInstrumentoPiano(b.nome); return; }
+                }
                 let escolhida=null;
                 // Pretas primeiro para preservar a sensação de teclado real.
                 for(const t of teclasPiano.filter(t=>!t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
