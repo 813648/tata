@@ -179,6 +179,7 @@
         .card-app.encaixe { border-color: #FF9F1A; box-shadow: 0 4px 15px rgba(255, 159, 26, 0.25); }
         .card-app.instrumentos { border-color: #C084FC; box-shadow: 0 4px 15px rgba(192, 132, 252, 0.25); }
         .card-app.aquario { border-color: #4DD0E1; box-shadow: 0 4px 15px rgba(77, 208, 225, 0.25); }
+        .card-app.piano { border-color: #FFD54F; box-shadow: 0 4px 15px rgba(255, 213, 79, 0.25); }
 
         .card-app .icon {
             font-size: 40px;
@@ -240,6 +241,10 @@
                 <div class="icon">🐠</div>
                 <div class="nome">Aquário Mágico</div>
             </div>
+            <div class="card-app piano" onclick="abrirJogo('piano')">
+                <div class="icon">🎹</div>
+                <div class="nome">Piano Mágico</div>
+            </div>
         </div>
     </div>
 
@@ -272,6 +277,7 @@
             if (jogoAtual === 'encaixe') reconfigurarEncaixes();
             if (jogoAtual === 'instrumentos') reconfigurarInstrumentos();
             if (jogoAtual === 'aquario') reconfigurarAquario();
+            if (jogoAtual === 'piano') reconfigurarPiano();
         }
         window.addEventListener('resize', redimensionar);
 
@@ -459,6 +465,17 @@
         let emTransicaoEncaixe = false;
 
         let instrumentos = [];
+        let teclasPiano = [];
+        let notasPianoAtivas = [];
+        const NOTAS_PIANO = [
+            {nome:'Dó',freq:261.63,branca:true,glyph:'♩'}, {nome:'Ré',freq:293.66,branca:true,glyph:'♪'},
+            {nome:'Mi',freq:329.63,branca:true,glyph:'♫'}, {nome:'Fá',freq:349.23,branca:true,glyph:'♩'},
+            {nome:'Sol',freq:392.00,branca:true,glyph:'♪'}, {nome:'Lá',freq:440.00,branca:true,glyph:'♫'},
+            {nome:'Si',freq:493.88,branca:true,glyph:'♩'},
+            {nome:'Dó♯',freq:277.18,branca:false,glyph:'♪'}, {nome:'Ré♯',freq:311.13,branca:false,glyph:'♫'},
+            {nome:'Fá♯',freq:369.99,branca:false,glyph:'♪'}, {nome:'Sol♯',freq:415.30,branca:false,glyph:'♫'},
+            {nome:'Lá♯',freq:466.16,branca:false,glyph:'♪'}
+        ];
         let particulasInstrumentos = [];
         let toquesInstrumentos = [];
         let ultimoInstrumento = -1;
@@ -499,6 +516,8 @@
                 reconfigurarInstrumentos();
             } else if (nome === 'aquario') {
                 reconfigurarAquario();
+            } else if (nome === 'piano') {
+                reconfigurarPiano();
             }
         }
 
@@ -798,6 +817,97 @@
             };
 
             reconfigurarEncaixes();
+        }
+
+        /* =================================================================
+           PIANO MÁGICO — um pequeno órgão para a Tatá 🎹
+           ================================================================= */
+        function reconfigurarPiano() {
+            const base = Math.min(largura, altura);
+            const topo = altura * 0.23;
+            const margem = largura * 0.055;
+            const larguraTecla = (largura - margem*2) / 7;
+            const alturaTecla = Math.min(altura*0.58, base*0.72);
+            teclasPiano = [];
+            const brancas = NOTAS_PIANO.filter(n=>n.branca);
+            brancas.forEach((n,i)=>teclasPiano.push({
+                ...n, x:margem+i*larguraTecla, y:topo, w:larguraTecla, h:alturaTecla,
+                pressionada:0, fase:Math.random()*6
+            }));
+            const pretas = [0,1,3,4,5];
+            const nomes = [NOTAS_PIANO[7],NOTAS_PIANO[8],NOTAS_PIANO[9],NOTAS_PIANO[10],NOTAS_PIANO[11]];
+            pretas.forEach((idx,i)=>{
+                const centro = margem+(idx+1)*larguraTecla;
+                teclasPiano.push({
+                    ...nomes[i], x:centro-larguraTecla*.30, y:topo, w:larguraTecla*.60, h:alturaTecla*.60,
+                    pressionada:0, fase:Math.random()*6
+                });
+            });
+            notasPianoAtivas=[];
+        }
+
+        function pontoNaTeclaPiano(x,y,t){ return x>=t.x && x<=t.x+t.w && y>=t.y && y<=t.y+t.h; }
+
+        function tocarNotaPiano(nota){
+            iniciarAudio();
+            const agora=audioCtx.currentTime+0.005;
+            const master=audioCtx.createGain();
+            master.gain.setValueAtTime(0.0001,agora);
+            master.gain.exponentialRampToValueAtTime(0.24,agora+0.012);
+            master.gain.exponentialRampToValueAtTime(0.001,agora+1.15);
+            master.connect(audioCtx.destination);
+            [1,2,3,4].forEach((mult,i)=>{
+                const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+                osc.type=i===0?'sine':'triangle'; osc.frequency.value=nota.freq*mult;
+                g.gain.value=[1,.18,.07,.025][i]; osc.connect(g); g.connect(master);
+                osc.start(agora); osc.stop(agora+1.2);
+            });
+        }
+
+        function ativarTeclaPiano(t){
+            t.pressionada=1;
+            tocarNotaPiano(t);
+            notasPianoAtivas.push({x:t.x+t.w/2,y:t.y+t.h*.18,nome:t.nome,glyph:t.glyph,vida:1,vy:-1.2,rot:(Math.random()-.5)*.015});
+        }
+
+        function desenharPiano(){
+            const base=Math.min(largura,altura);
+            // Caixa/órgão mágico
+            ctx.save();
+            ctx.fillStyle='rgba(72,38,25,.82)'; ctx.shadowColor='rgba(0,0,0,.4)'; ctx.shadowBlur=25;
+            ctx.beginPath(); ctx.roundRect(largura*.035,altura*.15,largura*.93,altura*.72,base*.025); ctx.fill();
+            ctx.shadowBlur=0;
+            ctx.fillStyle='rgba(255,214,102,.18)'; ctx.beginPath(); ctx.roundRect(largura*.055,altura*.17,largura*.89,altura*.06,base*.015); ctx.fill();
+            // Tubos de órgão
+            for(let i=0;i<7;i++){
+                const x=largura*.18+i*largura*.105, h=base*(.08+(i%4)*.018);
+                ctx.fillStyle=['#FFD54F','#FFB74D','#90CAF9','#CE93D8','#80CBC4'][i%5];
+                ctx.beginPath(); ctx.roundRect(x,altura*.175-h*.45,base*.025,h,base*.012); ctx.fill();
+            }
+            // Teclas brancas
+            teclasPiano.filter(t=>t.branca).forEach((t,i)=>{
+                const p=t.pressionada;
+                ctx.fillStyle=p?'#FFF3B0':'#FFFDF5'; ctx.strokeStyle='#B0A79A'; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.roundRect(t.x+1,t.y,t.w-2,t.h,base*.012); ctx.fill(); ctx.stroke();
+                ctx.fillStyle='rgba(80,70,60,.75)'; ctx.font=`bold ${Math.max(15,base*.035)}px sans-serif`; ctx.textAlign='center';
+                ctx.fillText(t.nome.replace('♯',''),t.x+t.w/2,t.y+t.h*.91);
+                if(p){ctx.fillStyle='rgba(255,193,7,.35)';ctx.beginPath();ctx.arc(t.x+t.w/2,t.y+t.h*.35,base*.045,0,Math.PI*2);ctx.fill();}
+            });
+            // Teclas pretas por cima
+            teclasPiano.filter(t=>!t.branca).forEach(t=>{
+                const p=t.pressionada; ctx.fillStyle=p?'#6D4C41':'#25232A'; ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=8;
+                ctx.beginPath();ctx.roundRect(t.x,t.y,t.w,t.h,base*.012);ctx.fill();ctx.shadowBlur=0;
+                ctx.fillStyle='rgba(255,255,255,.75)';ctx.font=`bold ${Math.max(11,base*.025)}px sans-serif`;ctx.textAlign='center';ctx.fillText(t.nome,t.x+t.w/2,t.y+t.h*.82);
+            });
+            ctx.restore();
+            // Notas mágicas
+            notasPianoAtivas.forEach(n=>{
+                ctx.save();ctx.globalAlpha=n.vida;ctx.translate(n.x,n.y);ctx.rotate(n.rot* (1-n.vida)*20);
+                ctx.font=`bold ${Math.max(38,base*.11)}px serif`;ctx.textAlign='center';ctx.fillStyle='#FFE082';ctx.shadowColor='#FFB300';ctx.shadowBlur=15;ctx.fillText(n.glyph,0,0);
+                ctx.font=`bold ${Math.max(17,base*.035)}px sans-serif`;ctx.fillStyle='#FFFFFF';ctx.shadowBlur=8;ctx.fillText(n.nome,0,base*.065);ctx.restore();
+            });
+            // pequenos reflexos
+            ctx.save();ctx.globalAlpha=.65;ctx.fillStyle='#FFF';ctx.font=`${Math.max(16,base*.028)}px sans-serif`;ctx.textAlign='center';ctx.fillText('Toca nas teclas 🎵',largura/2,altura*.205);ctx.restore();
         }
 
         /* =================================================================
@@ -1246,6 +1356,13 @@
                         break;
                     }
                 }
+            } else if (jogoAtual === 'piano') {
+                iniciarAudio();
+                let escolhida=null;
+                // Pretas primeiro para preservar a sensação de teclado real.
+                for(const t of teclasPiano.filter(t=>!t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
+                if(!escolhida) for(const t of teclasPiano.filter(t=>t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
+                if(escolhida) ativarTeclaPiano(escolhida);
             } else if (jogoAtual === 'instrumentos') {
                 for (let i = instrumentos.length - 1; i >= 0; i--) {
                     if (pontoNoInstrumento(ptX, ptY, instrumentos[i])) {
@@ -1632,6 +1749,7 @@
                 baloes:'Balões Mágicos',
                 escondidas:'Quem Está Escondido? 👀',
                 instrumentos:'Instrumentos Mágicos',
+                piano:'Piano Mágico',
                 aquario:'Aquário Mágico',
                 encaixe:'Encaixe Mágico'
             };
@@ -1730,6 +1848,13 @@
                     ctx.closePath(); ctx.fill(); ctx.restore();
                 }
 
+            } else if (jogoAtual === 'piano') {
+                iniciarAudio();
+                let escolhida=null;
+                // Pretas primeiro para preservar a sensação de teclado real.
+                for(const t of teclasPiano.filter(t=>!t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
+                if(!escolhida) for(const t of teclasPiano.filter(t=>t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
+                if(escolhida) ativarTeclaPiano(escolhida);
             } else if (jogoAtual === 'instrumentos') {
                 particulasInstrumentos.forEach(p => {
                     p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.opacidade -= 0.035;
