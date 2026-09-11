@@ -696,6 +696,92 @@
             }
         }
 
+        function desenharFundoCeleiroEscondidas(agora){
+            // Enquadramento simples de celeiro: serve apenas de palco para as 3 portas.
+            // O título e as portas continuam a ser desenhados pelo jogo, sem alterações.
+            const grad=ctx.createLinearGradient(0,0,0,altura);
+            grad.addColorStop(0,'#8B5A35');
+            grad.addColorStop(.58,'#9A633A');
+            grad.addColorStop(1,'#6E452A');
+            ctx.fillStyle=grad; ctx.fillRect(0,0,largura,altura);
+
+            // Tábuas verticais do celeiro.
+            ctx.save();
+            ctx.globalAlpha=.34;
+            ctx.strokeStyle='#4E301E';
+            ctx.lineWidth=Math.max(2,largura*.0022);
+            const passo=Math.max(32,largura*.045);
+            for(let x=0;x<largura;x+=passo){
+                ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,altura*.82);ctx.stroke();
+            }
+            ctx.restore();
+
+            // Travessas de madeira, discretas e fora da zona principal das portas.
+            ctx.save();
+            ctx.fillStyle='rgba(63,38,24,.62)';
+            ctx.fillRect(0,altura*.20,largura,Math.max(10,altura*.018));
+            ctx.fillRect(0,altura*.83,largura,Math.max(12,altura*.022));
+            ctx.restore();
+
+            // Estrutura superior do telhado.
+            ctx.save();
+            ctx.strokeStyle='rgba(61,37,24,.85)';
+            ctx.lineWidth=Math.max(10,largura*.012);
+            ctx.beginPath();ctx.moveTo(0,altura*.15);ctx.lineTo(largura*.18,0);ctx.stroke();
+            ctx.beginPath();ctx.moveTo(largura,altura*.15);ctx.lineTo(largura*.82,0);ctx.stroke();
+            ctx.restore();
+
+            // Pequena luz quente no centro superior.
+            const lx=largura*.5, ly=altura*.20;
+            ctx.save();
+            ctx.shadowBlur=28;ctx.shadowColor='rgba(255,220,130,.45)';
+            ctx.fillStyle='#FFE7A3';ctx.beginPath();ctx.arc(lx,ly,Math.max(6,altura*.012),0,Math.PI*2);ctx.fill();
+            ctx.shadowBlur=0;ctx.strokeStyle='rgba(55,35,24,.8)';ctx.lineWidth=Math.max(3,altura*.004);
+            ctx.beginPath();ctx.moveTo(lx,ly-altura*.035);ctx.lineTo(lx,ly-altura*.012);ctx.stroke();
+            ctx.beginPath();ctx.arc(lx,ly,Math.max(10,altura*.02),Math.PI,0);ctx.stroke();
+            ctx.restore();
+
+            // Chão de madeira.
+            ctx.save();
+            const chao=ctx.createLinearGradient(0,altura*.83,0,altura);
+            chao.addColorStop(0,'#A86D3E');chao.addColorStop(1,'#754827');
+            ctx.fillStyle=chao;ctx.fillRect(0,altura*.83,largura,altura*.17);
+            ctx.strokeStyle='rgba(62,36,22,.45)';ctx.lineWidth=2;
+            const linhas=6;
+            for(let i=1;i<linhas;i++){
+                const y=altura*(.83+i*.17/linhas);
+                ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(largura,y);ctx.stroke();
+            }
+            for(let x=largura*.08;x<largura;x+=largura*.16){
+                ctx.beginPath();ctx.moveTo(x,altura*.83);ctx.lineTo(x+(Math.sin(x)*.01*largura),altura);ctx.stroke();
+            }
+            ctx.restore();
+
+            // Pequenos fardos de palha nas extremidades: não invadem as portas.
+            function fardo(x,y,w,h){
+                ctx.save();
+                ctx.fillStyle='#E7B84D';ctx.strokeStyle='#B77B25';ctx.lineWidth=Math.max(2,w*.018);
+                ctx.beginPath();ctx.roundRect(x-w/2,y-h/2,w,h,Math.min(w,h)*.10);ctx.fill();ctx.stroke();
+                ctx.strokeStyle='rgba(126,79,25,.42)';ctx.lineWidth=Math.max(1,w*.012);
+                for(let i=1;i<4;i++){const yy=y-h/2+i*h/4;ctx.beginPath();ctx.moveTo(x-w*.42,yy);ctx.lineTo(x+w*.42,yy);ctx.stroke();}
+                ctx.restore();
+            }
+            const base=altura*.82;
+            fardo(largura*.045,base-altura*.045,largura*.08,altura*.09);
+            fardo(largura*.955,base-altura*.045,largura*.08,altura*.09);
+            fardo(largura*.075,base-altura*.105,largura*.065,altura*.07);
+            fardo(largura*.925,base-altura*.105,largura*.065,altura*.07);
+
+            // Pequenos pontos de luz/poeira, muito subtis.
+            ctx.save();ctx.fillStyle='rgba(255,224,150,.18)';
+            for(let i=0;i<14;i++){
+                const x=(i*97)%largura;
+                const y=altura*(.12+((i*37)%58)/100);
+                ctx.beginPath();ctx.arc(x,y+Math.sin(agora*.0005+i)*3,1.5+(i%3),0,Math.PI*2);ctx.fill();
+            }
+            ctx.restore();
+        }
+
         function desenharPortaEscondida(porta, r, agora) {
             const abertura = porta.abertura;
             const centroY = porta.y + r*0.10;
@@ -1829,15 +1915,7 @@
                 const r = getRaioPortaEscondida();
                 atualizarPortasEscondidas(agora);
 
-                // Pequenos elementos de cenário para dar vida ao palco.
-                ctx.save();
-                ctx.fillStyle='rgba(255,255,255,0.10)';
-                for(let i=0;i<5;i++){
-                    const x=largura*(0.08+i*0.21), y=altura*0.18+Math.sin(agora*0.001+i)*8;
-                    ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
-                }
-                ctx.restore();
-
+                desenharFundoCeleiroEscondidas(agora);
                 portasEscondidas.forEach(porta => desenharPortaEscondida(porta,r,agora));
 
                 for (const e of estrelasDescoberta) {
