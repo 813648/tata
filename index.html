@@ -467,6 +467,18 @@
         let instrumentos = [];
         let teclasPiano = [];
         let notasPianoAtivas = [];
+        let instrumentoPianoAtual = 'Órgão';
+        let botoesInstrumentoPiano = [];
+        const INSTRUMENTOS_PIANO = [
+            {nome:'Órgão', tipo:'orgao', simbolo:'🎹'},
+            {nome:'Bass', tipo:'bass', simbolo:'🎸'},
+            {nome:'Steel Drum', tipo:'steel', simbolo:'🥁'},
+            {nome:'Tub Bells', tipo:'bells', simbolo:'🔔'},
+            {nome:'Guitar', tipo:'guitar', simbolo:'🎸'},
+            {nome:'Marimba', tipo:'marimba', simbolo:'🪵'},
+            {nome:'Vibraphone', tipo:'vibra', simbolo:'✨'},
+            {nome:'Piano', tipo:'piano', simbolo:'🎼'}
+        ];
         const NOTAS_PIANO = [
             {nome:'Dó',freq:261.63,branca:true,glyph:'♩'}, {nome:'Ré',freq:293.66,branca:true,glyph:'♪'},
             {nome:'Mi',freq:329.63,branca:true,glyph:'♫'}, {nome:'Fá',freq:349.23,branca:true,glyph:'♩'},
@@ -562,13 +574,24 @@
            descoberta: olhos/orelhas espreitam, a porta abre, o animal
            salta para fora e depois muda para outro animal.
            ================================================================= */
+        // Animais em PNG local: podes substituir qualquer imagem sem alterar o jogo.
         const ANIMAIS_ESCONDIDOS = [
-            { tipo:'urso',  nome:'Urso',      cor:'#9C6B4F' },
-            { tipo:'vaca',  nome:'Vaca',      cor:'#66BB6A' },
-            { tipo:'gato',  nome:'Gato',      cor:'#FF9F43' },
-            { tipo:'cao',   nome:'Cão',       cor:'#42A5F5' },
-            { tipo:'porco', nome:'Porquinho', cor:'#EC6FA8' }
+            { tipo:'urso',    nome:'Urso',       cor:'#9C6B4F', imagem:'assets/animais/urso.png' },
+            { tipo:'vaca',    nome:'Vaca',       cor:'#66BB6A', imagem:'assets/animais/vaca.png' },
+            { tipo:'gato',    nome:'Gato',       cor:'#FF9F43', imagem:'assets/animais/gato.png' },
+            { tipo:'cao',     nome:'Cão',        cor:'#42A5F5', imagem:'assets/animais/cao.png' },
+            { tipo:'porco',  nome:'Porquinho',  cor:'#EC6FA8', imagem:'assets/animais/porquinho.png' },
+            { tipo:'ovelha', nome:'Ovelha',      cor:'#B8C8D8', imagem:'assets/animais/ovelha.png' },
+            { tipo:'cavalo', nome:'Cavalo',      cor:'#B56B3A', imagem:'assets/animais/cavalo.png' },
+            { tipo:'galo',   nome:'Galo',        cor:'#E74C3C', imagem:'assets/animais/galo.png' },
+            { tipo:'pato',   nome:'Pato',        cor:'#F4B400', imagem:'assets/animais/pato.png' }
         ];
+        const IMAGENS_ANIMAIS_ESCONDIDOS = {};
+        ANIMAIS_ESCONDIDOS.forEach(animal => {
+            const img = new Image();
+            img.src = animal.imagem;
+            IMAGENS_ANIMAIS_ESCONDIDOS[animal.tipo] = img;
+        });
         let portasEscondidas = [];
         let estrelasDescoberta = [];
         let ultimoEventoEscondido = 0;
@@ -584,6 +607,24 @@
             return opcoes[Math.floor(Math.random() * opcoes.length)] || ANIMAIS_ESCONDIDOS[0];
         }
 
+        function escolherAnimaisIniciaisEscondidos() {
+            const baralho = [...ANIMAIS_ESCONDIDOS];
+            for (let i = baralho.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [baralho[i], baralho[j]] = [baralho[j], baralho[i]];
+            }
+            return baralho.slice(0, 3);
+        }
+
+        function escolherAnimalParaPorta(portaIndex, exceptoTipo) {
+            const usados = portasEscondidas
+                .map((p, i) => i === portaIndex ? null : p.animal && p.animal.tipo)
+                .filter(Boolean);
+            const opcoes = ANIMAIS_ESCONDIDOS.filter(a => a.tipo !== exceptoTipo && !usados.includes(a.tipo));
+            const reserva = ANIMAIS_ESCONDIDOS.filter(a => a.tipo !== exceptoTipo);
+            return (opcoes.length ? opcoes : reserva)[Math.floor(Math.random() * (opcoes.length ? opcoes.length : reserva.length))];
+        }
+
         function reconfigurarEsconderijos() {
             const r = getRaioPortaEscondida();
             const portrait = altura > largura;
@@ -592,9 +633,9 @@
                 : [{x:largura*0.20,y:altura*0.58},{x:largura*0.50,y:altura*0.58},{x:largura*0.80,y:altura*0.58}];
 
             const anteriores = portasEscondidas;
+            const novos = anteriores.length ? anteriores.map(p => p.animal) : escolherAnimaisIniciaisEscondidos();
             portasEscondidas = pos.map((pt,i) => {
-                const anterior = anteriores[i];
-                const animal = anterior ? anterior.animal : ANIMAIS_ESCONDIDOS[i % ANIMAIS_ESCONDIDOS.length];
+                const animal = novos[i] || ANIMAIS_ESCONDIDOS[i];
                 return {
                     x:pt.x, y:pt.y, animal,
                     aberta:false, abertura:0, salto:0, brilho:0,
@@ -634,7 +675,7 @@
                     porta.proximoAnimal = agora + 500;
                 }
                 if (!porta.aberta && porta.proximoAnimal && agora >= porta.proximoAnimal) {
-                    const novo = escolherAnimalDiferente(porta.animal.tipo);
+                    const novo = escolherAnimalParaPorta(portasEscondidas.indexOf(porta), porta.animal.tipo);
                     porta.animal = novo;
                     porta.proximoAnimal = 0;
                     porta.piscou = false;
@@ -653,6 +694,92 @@
                 e.x+=e.vx; e.y+=e.vy; e.vy+=0.08; e.vx*=0.99; e.vida-=0.025; e.rot+=0.12;
                 if(e.vida<=0) estrelasDescoberta.splice(i,1);
             }
+        }
+
+        function desenharFundoCeleiroEscondidas(agora){
+            // Enquadramento simples de celeiro: serve apenas de palco para as 3 portas.
+            // O título e as portas continuam a ser desenhados pelo jogo, sem alterações.
+            const grad=ctx.createLinearGradient(0,0,0,altura);
+            grad.addColorStop(0,'#8B5A35');
+            grad.addColorStop(.58,'#9A633A');
+            grad.addColorStop(1,'#6E452A');
+            ctx.fillStyle=grad; ctx.fillRect(0,0,largura,altura);
+
+            // Tábuas verticais do celeiro.
+            ctx.save();
+            ctx.globalAlpha=.34;
+            ctx.strokeStyle='#4E301E';
+            ctx.lineWidth=Math.max(2,largura*.0022);
+            const passo=Math.max(32,largura*.045);
+            for(let x=0;x<largura;x+=passo){
+                ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,altura*.82);ctx.stroke();
+            }
+            ctx.restore();
+
+            // Travessas de madeira, discretas e fora da zona principal das portas.
+            ctx.save();
+            ctx.fillStyle='rgba(63,38,24,.62)';
+            ctx.fillRect(0,altura*.20,largura,Math.max(10,altura*.018));
+            ctx.fillRect(0,altura*.83,largura,Math.max(12,altura*.022));
+            ctx.restore();
+
+            // Estrutura superior do telhado.
+            ctx.save();
+            ctx.strokeStyle='rgba(61,37,24,.85)';
+            ctx.lineWidth=Math.max(10,largura*.012);
+            ctx.beginPath();ctx.moveTo(0,altura*.15);ctx.lineTo(largura*.18,0);ctx.stroke();
+            ctx.beginPath();ctx.moveTo(largura,altura*.15);ctx.lineTo(largura*.82,0);ctx.stroke();
+            ctx.restore();
+
+            // Pequena luz quente no centro superior.
+            const lx=largura*.5, ly=altura*.20;
+            ctx.save();
+            ctx.shadowBlur=28;ctx.shadowColor='rgba(255,220,130,.45)';
+            ctx.fillStyle='#FFE7A3';ctx.beginPath();ctx.arc(lx,ly,Math.max(6,altura*.012),0,Math.PI*2);ctx.fill();
+            ctx.shadowBlur=0;ctx.strokeStyle='rgba(55,35,24,.8)';ctx.lineWidth=Math.max(3,altura*.004);
+            ctx.beginPath();ctx.moveTo(lx,ly-altura*.035);ctx.lineTo(lx,ly-altura*.012);ctx.stroke();
+            ctx.beginPath();ctx.arc(lx,ly,Math.max(10,altura*.02),Math.PI,0);ctx.stroke();
+            ctx.restore();
+
+            // Chão de madeira.
+            ctx.save();
+            const chao=ctx.createLinearGradient(0,altura*.83,0,altura);
+            chao.addColorStop(0,'#A86D3E');chao.addColorStop(1,'#754827');
+            ctx.fillStyle=chao;ctx.fillRect(0,altura*.83,largura,altura*.17);
+            ctx.strokeStyle='rgba(62,36,22,.45)';ctx.lineWidth=2;
+            const linhas=6;
+            for(let i=1;i<linhas;i++){
+                const y=altura*(.83+i*.17/linhas);
+                ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(largura,y);ctx.stroke();
+            }
+            for(let x=largura*.08;x<largura;x+=largura*.16){
+                ctx.beginPath();ctx.moveTo(x,altura*.83);ctx.lineTo(x+(Math.sin(x)*.01*largura),altura);ctx.stroke();
+            }
+            ctx.restore();
+
+            // Pequenos fardos de palha nas extremidades: não invadem as portas.
+            function fardo(x,y,w,h){
+                ctx.save();
+                ctx.fillStyle='#E7B84D';ctx.strokeStyle='#B77B25';ctx.lineWidth=Math.max(2,w*.018);
+                ctx.beginPath();ctx.roundRect(x-w/2,y-h/2,w,h,Math.min(w,h)*.10);ctx.fill();ctx.stroke();
+                ctx.strokeStyle='rgba(126,79,25,.42)';ctx.lineWidth=Math.max(1,w*.012);
+                for(let i=1;i<4;i++){const yy=y-h/2+i*h/4;ctx.beginPath();ctx.moveTo(x-w*.42,yy);ctx.lineTo(x+w*.42,yy);ctx.stroke();}
+                ctx.restore();
+            }
+            const base=altura*.82;
+            fardo(largura*.045,base-altura*.045,largura*.08,altura*.09);
+            fardo(largura*.955,base-altura*.045,largura*.08,altura*.09);
+            fardo(largura*.075,base-altura*.105,largura*.065,altura*.07);
+            fardo(largura*.925,base-altura*.105,largura*.065,altura*.07);
+
+            // Pequenos pontos de luz/poeira, muito subtis.
+            ctx.save();ctx.fillStyle='rgba(255,224,150,.18)';
+            for(let i=0;i<14;i++){
+                const x=(i*97)%largura;
+                const y=altura*(.12+((i*37)%58)/100);
+                ctx.beginPath();ctx.arc(x,y+Math.sin(agora*.0005+i)*3,1.5+(i%3),0,Math.PI*2);ctx.fill();
+            }
+            ctx.restore();
         }
 
         function desenharPortaEscondida(porta, r, agora) {
@@ -828,6 +955,14 @@
             const margem = largura * 0.055;
             const larguraTecla = (largura - margem*2) / 7;
             const alturaTecla = Math.min(altura*0.58, base*0.72);
+            botoesInstrumentoPiano = [];
+            const areaX = largura * .055, areaW = largura * .89;
+            const gap = Math.max(4, base*.008);
+            const bw = (areaW-gap*7)/8;
+            const by = altura*.155, bh = Math.min(base*.075, altura*.065);
+            INSTRUMENTOS_PIANO.forEach((inst,i)=>botoesInstrumentoPiano.push({
+                ...inst, x:areaX+i*(bw+gap), y:by, w:bw, h:bh
+            }));
             teclasPiano = [];
             const brancas = NOTAS_PIANO.filter(n=>n.branca);
             brancas.forEach((n,i)=>teclasPiano.push({
@@ -852,16 +987,33 @@
             iniciarAudio();
             const agora=audioCtx.currentTime+0.005;
             const master=audioCtx.createGain();
+            const tipo=INSTRUMENTOS_PIANO.find(i=>i.nome===instrumentoPianoAtual)?.tipo || 'orgao';
+            const dur=tipo==='bells'||tipo==='steel'?1.8:tipo==='bass'?0.8:1.25;
             master.gain.setValueAtTime(0.0001,agora);
-            master.gain.exponentialRampToValueAtTime(0.24,agora+0.012);
-            master.gain.exponentialRampToValueAtTime(0.001,agora+1.15);
+            master.gain.exponentialRampToValueAtTime(tipo==='bass'?.30:.23,agora+0.012);
+            master.gain.exponentialRampToValueAtTime(0.001,agora+dur);
             master.connect(audioCtx.destination);
-            [1,2,3,4].forEach((mult,i)=>{
+            const partials = {
+                orgao:[[1,'sine',1],[2,'sine',.32],[3,'sine',.12],[4,'sine',.045]],
+                bass:[[1,'triangle',1],[2,'sine',.20],[.5,'sine',.16]],
+                steel:[[1,'sine',1],[2.01,'sine',.38],[3.98,'triangle',.16],[6.99,'sine',.06]],
+                bells:[[1,'sine',1],[2.71,'sine',.30],[4.07,'sine',.16],[6.8,'sine',.07]],
+                guitar:[[1,'triangle',1],[2,'triangle',.28],[3,'sine',.10],[5,'sine',.035]],
+                marimba:[[1,'sine',1],[3.0,'sine',.18],[4.2,'triangle',.07]],
+                vibra:[[1,'sine',1],[2,'sine',.22],[3,'sine',.09],[4.01,'sine',.04]],
+                piano:[[1,'sine',1],[2,'triangle',.18],[3,'sine',.07],[4,'triangle',.025]]
+            }[tipo];
+            partials.forEach(([mult,wave,level])=>{
                 const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
-                osc.type=i===0?'sine':'triangle'; osc.frequency.value=nota.freq*mult;
-                g.gain.value=[1,.18,.07,.025][i]; osc.connect(g); g.connect(master);
-                osc.start(agora); osc.stop(agora+1.2);
+                osc.type=wave; osc.frequency.value=nota.freq*mult;
+                g.gain.value=level; osc.connect(g); g.connect(master);
+                osc.start(agora); osc.stop(agora+dur+.05);
             });
+        }
+
+        function tocarInstrumentoPiano(nome){
+            instrumentoPianoAtual=nome;
+            tocarNotaPiano({freq:392,nome:'Sol',glyph:'♪'});
         }
 
         function ativarTeclaPiano(t){
@@ -878,12 +1030,20 @@
             ctx.beginPath(); ctx.roundRect(largura*.035,altura*.15,largura*.93,altura*.72,base*.025); ctx.fill();
             ctx.shadowBlur=0;
             ctx.fillStyle='rgba(255,214,102,.18)'; ctx.beginPath(); ctx.roundRect(largura*.055,altura*.17,largura*.89,altura*.06,base*.015); ctx.fill();
-            // Tubos de órgão
-            for(let i=0;i<7;i++){
-                const x=largura*.18+i*largura*.105, h=base*(.08+(i%4)*.018);
-                ctx.fillStyle=['#FFD54F','#FFB74D','#90CAF9','#CE93D8','#80CBC4'][i%5];
-                ctx.beginPath(); ctx.roundRect(x,altura*.175-h*.45,base*.025,h,base*.012); ctx.fill();
-            }
+            // Selector mágico de timbres — no lugar dos tubos de órgão
+            botoesInstrumentoPiano.forEach((b,i)=>{
+                const ativo=b.nome===instrumentoPianoAtual;
+                ctx.fillStyle=ativo?'#FFE082':'rgba(255,255,255,.92)';
+                ctx.strokeStyle=ativo?'#FF8F00':'rgba(92,67,54,.55)';
+                ctx.lineWidth=ativo?3:1.5;
+                ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,base*.012); ctx.fill(); ctx.stroke();
+                ctx.fillStyle=ativo?'#6D3B00':'#4E4038';
+                ctx.font=`bold ${Math.max(10,Math.min(16,base*.024))}px sans-serif`;
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillText(b.nome,b.x+b.w/2,b.y+b.h/2);
+                if(ativo){ctx.fillStyle='#FF9800';ctx.beginPath();ctx.arc(b.x+b.w*.12,b.y+b.h/2,base*.008,0,Math.PI*2);ctx.fill();}
+            });
+            ctx.textBaseline='alphabetic';
             // Teclas brancas
             teclasPiano.filter(t=>t.branca).forEach((t,i)=>{
                 const p=t.pressionada;
@@ -909,141 +1069,81 @@
         }
 
         /* =================================================================
-           INSTRUMENTOS MÁGICOS
+           INSTRUMENTOS MÁGICOS — V1: imagens + sons locais substituíveis
            ================================================================= */
-        const TIPOS_INSTRUMENTOS = [
-            {nome:'Órgão', ficheiro:'im1', cor:'#C084FC'},
-            {nome:'Tub Bells', ficheiro:'im2', cor:'#FFD54F'},
-            {nome:'Marimba', ficheiro:'im3', cor:'#64B5F6'},
-            {nome:'Steel Drum', ficheiro:'im4', cor:'#81C784'}
+        const INSTRUMENTOS_V1 = [
+            { id:'im1', nome:'Órgão', cor:'#C084FC' },
+            { id:'im2', nome:'Tub Bells', cor:'#FFD54F' },
+            { id:'im3', nome:'Marimba', cor:'#66BB6A' },
+            { id:'im4', nome:'Steel Drum', cor:'#64B5F6' }
         ];
-        const CORES_INSTRUMENTOS = TIPOS_INSTRUMENTOS.map(x => x.cor);
-        const imagensInstrumentos = TIPOS_INSTRUMENTOS.map(x => {
-            const im = new Image();
-            im.src = 'assets/instrumentos/' + x.ficheiro + '.png';
-            return im;
+        const IMAGENS_INSTRUMENTOS = INSTRUMENTOS_V1.map(inst => {
+            const img = new Image(); img.src = 'assets/instrumentos/' + inst.id + '.png'; return img;
         });
-        const sonsInstrumentos = TIPOS_INSTRUMENTOS.map(x => ({
-            ogg: 'audio/instrumentos/' + x.ficheiro + '.ogg',
-            mp3: 'audio/instrumentos/' + x.ficheiro + '.mp3'
-        }));
 
         function reconfigurarInstrumentos() {
             const portrait = altura > largura;
-            const marg = Math.min(largura, altura) * 0.045;
-            const gap = Math.min(largura, altura) * 0.035;
+            const base = Math.min(largura, altura);
+            const marg = base * 0.045;
+            const gap = base * 0.035;
             const topo = altura * 0.12;
             const baseLivre = altura * 0.80;
-            let cols = portrait ? 2 : 4;
-            let rows = portrait ? 2 : 1;
+            const cols = portrait ? 2 : 4;
+            const rows = portrait ? 2 : 1;
             const celW = (largura - marg * 2 - gap * (cols - 1)) / cols;
             const celH = (baseLivre - gap * (rows - 1)) / rows;
-
-            instrumentos = TIPOS_INSTRUMENTOS.map((tipo, i) => {
-                const col = i % cols;
-                const row = Math.floor(i / cols);
-                return {
-                    tipo: tipo.ficheiro,
-                    nome: tipo.nome,
-                    cor: tipo.cor,
-                    x: marg + col * (celW + gap) + celW / 2,
-                    y: topo + row * (celH + gap) + celH / 2,
-                    w: celW,
-                    h: celH,
-                    pulso: 0,
-                    brilho: 0,
-                    nota: 0
-                };
+            instrumentos = INSTRUMENTOS_V1.map((def, i) => {
+                const col = i % cols, row = Math.floor(i / cols);
+                return { ...def, x:marg+col*(celW+gap)+celW/2, y:topo+row*(celH+gap)+celH/2,
+                    w:celW, h:celH, pulso:0, brilho:0 };
             });
         }
 
-        function pontoNoInstrumento(x, y, inst) {
-            return Math.abs(x - inst.x) <= inst.w * 0.47 && Math.abs(y - inst.y) <= inst.h * 0.45;
+        function pontoNoInstrumento(x,y,inst){
+            return Math.abs(x-inst.x)<=inst.w*.47 && Math.abs(y-inst.y)<=inst.h*.45;
         }
 
-        function tocarSomInstrumento(i) {
-            const ficheiros = sonsInstrumentos[i];
-            if (!ficheiros) return;
-            try {
-                const a = new Audio(ficheiros.ogg);
-                a.preload = 'auto';
-                a.volume = 0.85;
-                a.play().catch(() => {
-                    const b = new Audio(ficheiros.mp3);
-                    b.volume = 0.85;
-                    b.play().catch(() => {});
-                });
-            } catch(e) {}
-        }
-
-        function criarParticulasInstrumento(x, y, cor) {
-            for (let i = 0; i < 14; i++) {
-                particulasInstrumentos.push({
-                    x, y,
-                    vx: (Math.random() - 0.5) * 9,
-                    vy: -Math.random() * 7 - 1,
-                    raio: Math.random() * 5 + 2,
-                    opacidade: 1,
-                    cor
-                });
-            }
-        }
-
-        function ativarInstrumento(i) {
-            const inst = instrumentos[i];
-            if (!inst) return;
+        function tocarSomInstrumento(id){
             iniciarAudio();
-            inst.pulso = 1;
-            inst.brilho = 1;
-            inst.nota = Math.random();
-            ultimoInstrumento = i;
-            tocarSomInstrumento(i);
-            criarParticulasInstrumento(inst.x, inst.y - inst.h * 0.05, inst.cor);
+            const base = 'audio/instrumentos/' + id;
+            const a = new Audio(base + '.ogg');
+            a.preload='auto'; a.volume=.9;
+            a.onerror=()=>{ const b=new Audio(base+'.mp3'); b.volume=.9; b.play().catch(()=>{}); };
+            a.play().catch(()=>{ const b=new Audio(base+'.mp3'); b.volume=.9; b.play().catch(()=>{}); });
         }
 
-        function desenharInstrumento(inst, i) {
-            const p = 1 + inst.pulso * 0.045;
-            ctx.save();
-            ctx.translate(inst.x, inst.y);
-            ctx.scale(p, p);
+        function criarParticulasInstrumento(x,y,cor){
+            for(let i=0;i<18;i++) particulasInstrumentos.push({x,y,vx:(Math.random()-.5)*9,vy:-Math.random()*7-1,
+                raio:Math.random()*5+2,opacidade:1,cor});
+        }
 
-            ctx.fillStyle = 'rgba(255,255,255,0.08)';
-            ctx.shadowBlur = 18;
-            ctx.shadowColor = inst.cor;
-            ctx.beginPath();
-            const r = Math.min(inst.w, inst.h) * 0.08;
-            ctx.roundRect(-inst.w*0.47, -inst.h*0.45, inst.w*0.94, inst.h*0.9, r);
-            ctx.fill();
-            ctx.shadowBlur = 0;
+        function ativarInstrumento(i){
+            const inst=instrumentos[i]; if(!inst)return;
+            iniciarAudio(); inst.pulso=1; inst.brilho=1; ultimoInstrumento=i;
+            tocarSomInstrumento(inst.id);
+            criarParticulasInstrumento(inst.x,inst.y-inst.h*.05,inst.cor);
+        }
 
-            const img = imagensInstrumentos[i];
-            if (img && img.complete && img.naturalWidth) {
-                const margem = Math.min(inst.w, inst.h) * 0.07;
-                const iw = inst.w * 0.62;
-                const ih = inst.h * 0.58;
-                const escala = Math.min(iw / img.naturalWidth, ih / img.naturalHeight);
-                const dw = img.naturalWidth * escala;
-                const dh = img.naturalHeight * escala;
-                ctx.drawImage(img, -dw/2, -dh/2 - inst.h*0.045, dw, dh);
-            }
-
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = `bold ${Math.max(17, Math.min(30, inst.h * 0.085))}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.shadowColor = '#000';
-            ctx.shadowBlur = 6;
-            ctx.fillText(inst.nome, 0, inst.h * 0.37);
-            ctx.shadowBlur = 0;
-
-            if (inst.brilho > 0) {
-                ctx.globalAlpha = inst.brilho * 0.48;
-                ctx.fillStyle = '#FFFFFF';
-                ctx.beginPath();
-                ctx.arc(-inst.w*0.27, -inst.h*0.25, Math.min(inst.w, inst.h)*0.055, 0, Math.PI*2);
-                ctx.fill();
-            }
+        function desenharInstrumento(inst,i){
+            const p=1+inst.pulso*.045;
+            ctx.save(); ctx.translate(inst.x,inst.y); ctx.scale(p,p);
+            const r=Math.min(inst.w,inst.h)*.08;
+            ctx.fillStyle='rgba(255,255,255,.09)'; ctx.shadowBlur=20; ctx.shadowColor=inst.cor;
+            ctx.beginPath(); ctx.roundRect(-inst.w*.47,-inst.h*.45,inst.w*.94,inst.h*.9,r); ctx.fill(); ctx.shadowBlur=0;
+            const img=IMAGENS_INSTRUMENTOS[i];
+            const maxW=inst.w*.70, maxH=inst.h*.64;
+            const iw=img.naturalWidth||700, ih=img.naturalHeight||700;
+            const scale=Math.min(maxW/iw,maxH/ih);
+            const dw=iw*scale, dh=ih*scale;
+            ctx.globalAlpha=.98;
+            if(img.complete && iw>0) ctx.drawImage(img,-dw/2,-dh/2-dh*.03,dw,dh);
+            ctx.globalAlpha=1;
+            ctx.fillStyle='rgba(255,255,255,.9)'; ctx.font=`bold ${Math.max(18,Math.min(baseFontSize(),inst.h*.085))}px sans-serif`;
+            ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(inst.nome,0,inst.h*.365);
+            if(inst.brilho>0){ctx.globalAlpha=inst.brilho*.5;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-inst.w*.27,-inst.h*.25,Math.min(inst.w,inst.h)*.055,0,Math.PI*2);ctx.fill();}
             ctx.restore();
         }
+        function baseFontSize(){ return Math.min(largura,altura)*.045; }
 
         /* =================================================================
            AQUÁRIO MÁGICO — versão renovada
@@ -1319,6 +1419,9 @@
                 }
             } else if (jogoAtual === 'piano') {
                 iniciarAudio();
+                for(const b of botoesInstrumentoPiano){
+                    if(pontoNaTeclaPiano(ptX,ptY,b)){ tocarInstrumentoPiano(b.nome); return; }
+                }
                 let escolhida=null;
                 // Pretas primeiro para preservar a sensação de teclado real.
                 for(const t of teclasPiano.filter(t=>!t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
@@ -1618,88 +1721,13 @@
         }
 
         function desenharIlustracaoAnimal(x, y, tipo, r) {
+            const img = IMAGENS_ANIMAIS_ESCONDIDOS[tipo];
+            if (!img || !img.complete || !img.naturalWidth) return;
+            const lado = r * 2.05;
             ctx.save();
             ctx.translate(x, y);
-
-            if (tipo === 'urso') {
-                ctx.fillStyle = '#8B4513';
-                ctx.beginPath(); ctx.arc(-r*0.7, -r*0.7, r*0.35, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.7, -r*0.7, r*0.35, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#D2B48C'; ctx.beginPath(); ctx.arc(0, r*0.2, r*0.45, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, r*0.05, r*0.12, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(-r*0.35, -r*0.2, r*0.1, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.2, r*0.1, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'coelho') {
-                ctx.fillStyle = '#FFFFFF';
-                ctx.beginPath(); ctx.ellipse(-r*0.35, -r*0.9, r*0.2, r*0.6, -0.2, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.35, -r*0.9, r*0.2, r*0.6, 0.2, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FFB6C1';
-                ctx.beginPath(); ctx.ellipse(-r*0.35, -r*0.9, r*0.1, r*0.4, -0.2, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.35, -r*0.9, r*0.1, r*0.4, 0.2, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = 'rgba(255, 182, 193, 0.6)';
-                ctx.beginPath(); ctx.arc(-r*0.4, r*0.15, r*0.18, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.4, r*0.15, r*0.18, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222';
-                ctx.beginPath(); ctx.arc(-r*0.3, -r*0.1, r*0.12, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.3, -r*0.1, r*0.12, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FF4081'; ctx.beginPath(); ctx.ellipse(0, r*0.08, r*0.1, r*0.06, 0, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'pintainho') {
-                ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FF8C00'; ctx.beginPath(); ctx.moveTo(-r*0.2, r*0.05); ctx.lineTo(r*0.2, r*0.05); ctx.lineTo(0, r*0.35); ctx.closePath(); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'gato') {
-                ctx.fillStyle = '#FF9800';
-                ctx.beginPath(); ctx.moveTo(-r*0.7, -r*0.3); ctx.lineTo(-r*0.5, -r*1.1); ctx.lineTo(-r*0.1, -r*0.5); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(r*0.7, -r*0.3); ctx.lineTo(r*0.5, -r*1.1); ctx.lineTo(r*0.1, -r*0.5); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FF4081'; ctx.beginPath(); ctx.moveTo(-r*0.1, r*0.02); ctx.lineTo(r*0.1, r*0.02); ctx.lineTo(0, r*0.15); ctx.closePath(); ctx.fill();
-            } else if (tipo === 'vaca') {
-                // Vaca desenhada diretamente em Canvas: não depende de emoji/fontes.
-                ctx.fillStyle = '#F5F5F5';
-                ctx.beginPath(); ctx.ellipse(0, 0, r*0.92, r*0.86, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#3A3A3A';
-                ctx.beginPath(); ctx.ellipse(-r*0.42, -r*0.36, r*0.26, r*0.32, -0.35, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.45, r*0.05, r*0.22, r*0.30, 0.45, 0, Math.PI*2); ctx.fill();
-                // Orelhas
-                ctx.fillStyle = '#F5F5F5';
-                ctx.beginPath(); ctx.ellipse(-r*0.78, -r*0.35, r*0.30, r*0.17, -0.35, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.78, -r*0.35, r*0.30, r*0.17, 0.35, 0, Math.PI*2); ctx.fill();
-                // Chifres
-                ctx.fillStyle = '#FFE0A3';
-                ctx.beginPath(); ctx.moveTo(-r*0.52,-r*0.67); ctx.lineTo(-r*0.34,-r*1.03); ctx.lineTo(-r*0.18,-r*0.66); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(r*0.52,-r*0.67); ctx.lineTo(r*0.34,-r*1.03); ctx.lineTo(r*0.18,-r*0.66); ctx.closePath(); ctx.fill();
-                // Focinho
-                ctx.fillStyle = '#F3A6B9';
-                ctx.beginPath(); ctx.ellipse(0, r*0.30, r*0.48, r*0.31, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#7B4C58';
-                ctx.beginPath(); ctx.arc(-r*0.17, r*0.30, r*0.055, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.17, r*0.30, r*0.055, 0, Math.PI*2); ctx.fill();
-                // Olhos
-                ctx.fillStyle = '#222';
-                ctx.beginPath(); ctx.arc(-r*0.30, -r*0.13, r*0.085, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.30, -r*0.13, r*0.085, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'cao') {
-                ctx.fillStyle = '#795548';
-                ctx.beginPath(); ctx.ellipse(-r*0.8, 0, r*0.3, r*0.6, 0.2, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(r*0.8, 0, r*0.3, r*0.6, -0.2, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#D7CCC8'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, r*0.05, r*0.15, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
-            } else if (tipo === 'porco') {
-                ctx.fillStyle = '#FF80AB';
-                ctx.beginPath(); ctx.arc(-r*0.6, -r*0.7, r*0.25, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.6, -r*0.7, r*0.25, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#FF4081'; ctx.beginPath(); ctx.ellipse(0, r*0.1, r*0.35, r*0.25, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(r*0.35, -r*0.15, r*0.09, 0, Math.PI*2); ctx.fill();
-            }
+            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(img, -lado/2, -lado/2, lado, lado);
             ctx.restore();
         }
 
@@ -1790,15 +1818,7 @@
                 const r = getRaioPortaEscondida();
                 atualizarPortasEscondidas(agora);
 
-                // Pequenos elementos de cenário para dar vida ao palco.
-                ctx.save();
-                ctx.fillStyle='rgba(255,255,255,0.10)';
-                for(let i=0;i<5;i++){
-                    const x=largura*(0.08+i*0.21), y=altura*0.18+Math.sin(agora*0.001+i)*8;
-                    ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
-                }
-                ctx.restore();
-
+                desenharFundoCeleiroEscondidas(agora);
                 portasEscondidas.forEach(porta => desenharPortaEscondida(porta,r,agora));
 
                 for (const e of estrelasDescoberta) {
@@ -1810,12 +1830,19 @@
                 }
 
             } else if (jogoAtual === 'piano') {
-                iniciarAudio();
-                let escolhida=null;
-                // Pretas primeiro para preservar a sensação de teclado real.
-                for(const t of teclasPiano.filter(t=>!t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
-                if(!escolhida) for(const t of teclasPiano.filter(t=>t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
-                if(escolhida) ativarTeclaPiano(escolhida);
+                // O piano é desenhado aqui; a deteção do toque pertence ao handler de toque.
+                teclasPiano.forEach(t => {
+                    t.pressionada *= 0.88;
+                    if (t.pressionada < 0.02) t.pressionada = 0;
+                });
+                for (let i = notasPianoAtivas.length - 1; i >= 0; i--) {
+                    const n = notasPianoAtivas[i];
+                    n.x += Math.sin((1-n.vida)*8 + i) * 0.35;
+                    n.y += n.vy;
+                    n.vida -= 0.018;
+                    if (n.vida <= 0) notasPianoAtivas.splice(i,1);
+                }
+                desenharPiano();
             } else if (jogoAtual === 'instrumentos') {
                 particulasInstrumentos.forEach(p => {
                     p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.opacidade -= 0.035;
