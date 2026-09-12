@@ -1,0 +1,11 @@
+INSTRUMENTOS MAGICOS — ficheiros substituiveis
+
+As quatro posições do jogo correspondem sempre a:
+  im1.png + audio/instrumentos/im1.ogg (ou im1.mp3) = posição 1 — Órgão
+  im2.png + audio/instrumentos/im2.ogg (ou im2.mp3) = posição 2 — Tub Bells
+  im3.png + audio/instrumentos/im3.ogg (ou im3.mp3) = posição 3 — Marimba
+  im4.png + audio/instrumentos/im4.ogg (ou im4.mp3) = posição 4 — Steel Drum
+
+Para experimentar outro instrumento, basta substituir o PNG e o OGG/MP3 da posição.
+O nome mostrado no botão ainda é definido no index.html.
+Os sons incluídos nesta versão são exemplos locais e podem ser substituídos.
