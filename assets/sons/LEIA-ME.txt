@@ -1,0 +1,10 @@
+Sons Mágicos — mapa de ficheiros
+
+Cada posição é independente:
+ im1.png + audio/sons/im1.ogg (fallback im1.mp3)
+ ...
+ im8.png + audio/sons/im8.ogg (fallback im8.mp3)
+
+Não há nomes associados às posições no código nem no ecrã. Pode substituir qualquer PNG e o respetivo som mantendo o mesmo nome.
+
+Conteúdo de exemplo V1: 6 animais + sino + tambor.
