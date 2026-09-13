@@ -1075,8 +1075,8 @@
            ================================================================= */
         const SONS_MAGICOS = Array.from({length:8}, (_,i) => ({
             imagem: `assets/sons/im${i+1}.png`,
-            audio: `audio/sons/im${i+1}.ogg`,
-            fallback: `audio/sons/im${i+1}.mp3`
+            audio: `audio/sons/im${i+1}.mp3`,
+            fallback: `audio/sons/im${i+1}.ogg`
         }));
         const IMAGENS_SONS_MAGICOS = SONS_MAGICOS.map(item => {
             const img = new Image(); img.src = item.imagem; return img;
