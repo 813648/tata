@@ -235,7 +235,7 @@
             </div>
             <div class="card-app instrumentos" onclick="abrirJogo('instrumentos')">
                 <div class="icon">🎵</div>
-                <div class="nome">Instrumentos Mágicos</div>
+                <div class="nome">Sons Mágicos</div>
             </div>
             <div class="card-app aquario" onclick="abrirJogo('aquario')">
                 <div class="icon">🐠</div>
@@ -524,7 +524,7 @@
             } else if (nome === 'encaixe') {
                 iniciarNovaSequenciaEncaixe();
             } else if (nome === 'instrumentos') {
-                particulasInstrumentos = [];
+                particulasSonsMagicos = [];
                 reconfigurarInstrumentos();
             } else if (nome === 'aquario') {
                 reconfigurarAquario();
@@ -1069,17 +1069,22 @@
         }
 
         /* =================================================================
-           INSTRUMENTOS MÁGICOS — V1: imagens + sons locais substituíveis
+           SONS MÁGICOS
+           8 posições anónimas: imagem im1..im8 + som im1..im8.
+           O conteúdo pode ser trocado sem alterar a lógica do jogo.
            ================================================================= */
-        const INSTRUMENTOS_V1 = [
-            { id:'im1', nome:'Órgão', cor:'#C084FC' },
-            { id:'im2', nome:'Tub Bells', cor:'#FFD54F' },
-            { id:'im3', nome:'Marimba', cor:'#66BB6A' },
-            { id:'im4', nome:'Steel Drum', cor:'#64B5F6' }
-        ];
-        const IMAGENS_INSTRUMENTOS = INSTRUMENTOS_V1.map(inst => {
-            const img = new Image(); img.src = 'assets/instrumentos/' + inst.id + '.png'; return img;
+        const SONS_MAGICOS = Array.from({length:8}, (_,i) => ({
+            imagem: `assets/sons/im${i+1}.png`,
+            audio: `audio/sons/im${i+1}.ogg`,
+            fallback: `audio/sons/im${i+1}.mp3`
+        }));
+        const IMAGENS_SONS_MAGICOS = SONS_MAGICOS.map(item => {
+            const img = new Image(); img.src = item.imagem; return img;
         });
+        let sonsMagicos = [];
+        let particulasSonsMagicos = [];
+        let audiosSonsMagicos = [];
+        let ultimoSomMagico = -1;
 
         function reconfigurarInstrumentos() {
             const portrait = altura > largura;
@@ -1089,61 +1094,82 @@
             const topo = altura * 0.12;
             const baseLivre = altura * 0.80;
             const cols = portrait ? 2 : 4;
-            const rows = portrait ? 2 : 1;
+            const rows = portrait ? 4 : 2;
             const celW = (largura - marg * 2 - gap * (cols - 1)) / cols;
             const celH = (baseLivre - gap * (rows - 1)) / rows;
-            instrumentos = INSTRUMENTOS_V1.map((def, i) => {
-                const col = i % cols, row = Math.floor(i / cols);
-                return { ...def, x:marg+col*(celW+gap)+celW/2, y:topo+row*(celH+gap)+celH/2,
-                    w:celW, h:celH, pulso:0, brilho:0 };
+            sonsMagicos = SONS_MAGICOS.map((_, i) => {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                return {
+                    x: marg + col * (celW + gap) + celW / 2,
+                    y: topo + row * (celH + gap) + celH / 2,
+                    w: celW, h: celH,
+                    pulso: 0, brilho: 0, rotacao: 0
+                };
+            });
+            audiosSonsMagicos = SONS_MAGICOS.map(item => {
+                const a = new Audio();
+                a.preload = 'auto'; a.src = item.audio;
+                a.addEventListener('error', () => { a.src = item.fallback; }, {once:true});
+                return a;
             });
         }
 
-        function pontoNoInstrumento(x,y,inst){
-            return Math.abs(x-inst.x)<=inst.w*.47 && Math.abs(y-inst.y)<=inst.h*.45;
+        function pontoNoSomMagico(x, y, item) {
+            return Math.abs(x-item.x) <= item.w*0.47 && Math.abs(y-item.y) <= item.h*0.45;
         }
 
-        function tocarSomInstrumento(id){
+        function tocarSomMagico(i) {
+            const a = audiosSonsMagicos[i];
+            if (!a) return;
+            try { a.currentTime = 0; const r = a.play(); if (r && r.catch) r.catch(()=>{}); }
+            catch(e) {}
+        }
+
+        function criarParticulasSomMagico(x,y) {
+            for(let i=0;i<18;i++){
+                const a=Math.random()*Math.PI*2, v=2+Math.random()*6;
+                particulasSonsMagicos.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,vida:1,r:3+Math.random()*5});
+            }
+        }
+
+        function ativarSomMagico(i) {
+            const item=sonsMagicos[i]; if(!item) return;
             iniciarAudio();
-            const base = 'audio/instrumentos/' + id;
-            const a = new Audio(base + '.ogg');
-            a.preload='auto'; a.volume=.9;
-            a.onerror=()=>{ const b=new Audio(base+'.mp3'); b.volume=.9; b.play().catch(()=>{}); };
-            a.play().catch(()=>{ const b=new Audio(base+'.mp3'); b.volume=.9; b.play().catch(()=>{}); });
+            item.pulso=1; item.brilho=1; item.rotacao=(Math.random()-.5)*0.08;
+            ultimoSomMagico=i;
+            tocarSomMagico(i);
+            criarParticulasSomMagico(item.x,item.y);
         }
 
-        function criarParticulasInstrumento(x,y,cor){
-            for(let i=0;i<18;i++) particulasInstrumentos.push({x,y,vx:(Math.random()-.5)*9,vy:-Math.random()*7-1,
-                raio:Math.random()*5+2,opacidade:1,cor});
-        }
-
-        function ativarInstrumento(i){
-            const inst=instrumentos[i]; if(!inst)return;
-            iniciarAudio(); inst.pulso=1; inst.brilho=1; ultimoInstrumento=i;
-            tocarSomInstrumento(inst.id);
-            criarParticulasInstrumento(inst.x,inst.y-inst.h*.05,inst.cor);
-        }
-
-        function desenharInstrumento(inst,i){
-            const p=1+inst.pulso*.045;
-            ctx.save(); ctx.translate(inst.x,inst.y); ctx.scale(p,p);
-            const r=Math.min(inst.w,inst.h)*.08;
-            ctx.fillStyle='rgba(255,255,255,.09)'; ctx.shadowBlur=20; ctx.shadowColor=inst.cor;
-            ctx.beginPath(); ctx.roundRect(-inst.w*.47,-inst.h*.45,inst.w*.94,inst.h*.9,r); ctx.fill(); ctx.shadowBlur=0;
-            const img=IMAGENS_INSTRUMENTOS[i];
-            const maxW=inst.w*.70, maxH=inst.h*.64;
-            const iw=img.naturalWidth||700, ih=img.naturalHeight||700;
-            const scale=Math.min(maxW/iw,maxH/ih);
-            const dw=iw*scale, dh=ih*scale;
-            ctx.globalAlpha=.98;
-            if(img.complete && iw>0) ctx.drawImage(img,-dw/2,-dh/2-dh*.03,dw,dh);
-            ctx.globalAlpha=1;
-            ctx.fillStyle='rgba(255,255,255,.9)'; ctx.font=`bold ${Math.max(18,Math.min(baseFontSize(),inst.h*.085))}px sans-serif`;
-            ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(inst.nome,0,inst.h*.365);
-            if(inst.brilho>0){ctx.globalAlpha=inst.brilho*.5;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-inst.w*.27,-inst.h*.25,Math.min(inst.w,inst.h)*.055,0,Math.PI*2);ctx.fill();}
+        function desenharSomMagico(item,i) {
+            const p=1+item.pulso*0.055;
+            ctx.save();
+            ctx.translate(item.x,item.y);
+            ctx.rotate(item.rotacao*item.pulso);
+            ctx.scale(p,p);
+            const r=Math.min(item.w,item.h)*0.10;
+            ctx.shadowBlur=20;
+            ctx.shadowColor='rgba(255,255,255,.35)';
+            ctx.fillStyle='rgba(255,255,255,.10)';
+            ctx.beginPath(); ctx.roundRect(-item.w*.47,-item.h*.45,item.w*.94,item.h*.90,r); ctx.fill();
+            ctx.shadowBlur=0;
+            const img=IMAGENS_SONS_MAGICOS[i];
+            const lado=Math.min(item.w*.76,item.h*.72);
+            if(img && img.complete && img.naturalWidth){
+                ctx.imageSmoothingEnabled=true;
+                ctx.drawImage(img,-lado/2,-lado/2,lado,lado);
+            } else {
+                ctx.font=`${Math.min(item.w,item.h)*.34}px sans-serif`;
+                ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('✨',0,0);
+            }
+            if(item.brilho>0){
+                ctx.globalAlpha=item.brilho*.55;
+                ctx.strokeStyle='#FFFFFF';ctx.lineWidth=Math.max(3,Math.min(item.w,item.h)*.018);
+                ctx.beginPath();ctx.arc(0,0,lado*.56,0,Math.PI*2);ctx.stroke();
+            }
             ctx.restore();
         }
-        function baseFontSize(){ return Math.min(largura,altura)*.045; }
 
         /* =================================================================
            AQUÁRIO MÁGICO — versão renovada
@@ -1428,9 +1454,9 @@
                 if(!escolhida) for(const t of teclasPiano.filter(t=>t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
                 if(escolhida) ativarTeclaPiano(escolhida);
             } else if (jogoAtual === 'instrumentos') {
-                for (let i = instrumentos.length - 1; i >= 0; i--) {
-                    if (pontoNoInstrumento(ptX, ptY, instrumentos[i])) {
-                        ativarInstrumento(i);
+                for (let i = sonsMagicos.length - 1; i >= 0; i--) {
+                    if (pontoNoSomMagico(ptX, ptY, sonsMagicos[i])) {
+                        ativarSomMagico(i);
                         break;
                     }
                 }
@@ -1737,7 +1763,7 @@
                 pintura:'Pintura Mágica',
                 baloes:'Balões Mágicos',
                 escondidas:'Quem Está Escondido? 👀',
-                instrumentos:'Instrumentos Mágicos',
+                instrumentos:'Sons Mágicos',
                 piano:'Piano Mágico',
                 aquario:'Aquário Mágico',
                 encaixe:'Encaixe Mágico'
@@ -1844,17 +1870,16 @@
                 }
                 desenharPiano();
             } else if (jogoAtual === 'instrumentos') {
-                particulasInstrumentos.forEach(p => {
-                    p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.opacidade -= 0.035;
-                    ctx.save(); ctx.globalAlpha = Math.max(0, p.opacidade);
-                    ctx.fillStyle = p.cor; ctx.shadowBlur = 10; ctx.shadowColor = p.cor;
-                    ctx.beginPath(); ctx.arc(p.x, p.y, p.raio, 0, Math.PI*2); ctx.fill(); ctx.restore();
-                });
-                particulasInstrumentos = particulasInstrumentos.filter(p => p.opacidade > 0);
-                instrumentos.forEach((inst, i) => {
-                    inst.pulso *= 0.86;
-                    inst.brilho *= 0.90;
-                    desenharInstrumento(inst, i);
+                for(let i=particulasSonsMagicos.length-1;i>=0;i--){
+                    const p=particulasSonsMagicos[i];
+                    p.x+=p.vx; p.y+=p.vy; p.vy+=0.18; p.vida-=0.035;
+                    ctx.save();ctx.globalAlpha=Math.max(0,p.vida);ctx.fillStyle='#FFE082';ctx.shadowBlur=10;ctx.shadowColor='#FFE082';
+                    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.restore();
+                    if(p.vida<=0)particulasSonsMagicos.splice(i,1);
+                }
+                sonsMagicos.forEach((item,i)=>{
+                    item.pulso*=0.84; item.brilho*=0.90; item.rotacao*=0.86;
+                    desenharSomMagico(item,i);
                 });
 
             } else if (jogoAtual === 'aquario') {
