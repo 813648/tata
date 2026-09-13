@@ -1119,7 +1119,7 @@
             return Math.abs(x-item.x) <= item.w*0.47 && Math.abs(y-item.y) <= item.h*0.45;
         }
 
-        function tocarSomMagico(i) {
+        function tocarAudioSomMagico(i) {
             const a = audiosSonsMagicos[i];
             if (!a) return;
             try { a.currentTime = 0; const r = a.play(); if (r && r.catch) r.catch(()=>{}); }
@@ -1138,7 +1138,7 @@
             iniciarAudio();
             item.pulso=1; item.brilho=1; item.rotacao=(Math.random()-.5)*0.08;
             ultimoSomMagico=i;
-            tocarSomMagico(i);
+            tocarAudioSomMagico(i);
             criarParticulasSomMagico(item.x,item.y);
         }
 
