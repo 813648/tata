@@ -464,6 +464,24 @@
         let encaixes = [];
         let particulasEncaixe = [];
         let emTransicaoEncaixe = false;
+        let nivelEncaixe = 1;
+        let origemSelecionadaEncaixe = false;
+        let tempoBrilhoEncaixe = 0;
+        let movimentoEncaixeIniciado = false;
+        const MAX_NIVEIS_ENCAIXE = 10;
+
+        const NIVEIS_ENCAIXE = [
+            { nome:'Arrasta até mim', tipo:'basico', destinos:1, escalaDestino:1.00, distancia:0.47 },
+            { nome:'Mais longe', tipo:'basico', destinos:1, escalaDestino:1.00, distancia:0.64 },
+            { nome:'Cima / baixo', tipo:'vertical', destinos:1, escalaDestino:1.00, distancia:0.48 },
+            { nome:'Esquerda / direita', tipo:'horizontal', destinos:1, escalaDestino:0.98, distancia:0.66 },
+            { nome:'Diagonal', tipo:'diagonal', destinos:1, escalaDestino:0.96, distancia:0.58 },
+            { nome:'Escolhe primeiro', tipo:'selecionar', destinos:1, escalaDestino:0.98, distancia:0.58 },
+            { nome:'Escolhe o destino', tipo:'escolherDestino', destinos:2, escalaDestino:0.98, distancia:0.58 },
+            { nome:'Escolha + movimento', tipo:'selecionar2', destinos:2, escalaDestino:0.94, distancia:0.64 },
+            { nome:'Caminho maior', tipo:'longo', destinos:1, escalaDestino:0.90, distancia:0.72 },
+            { nome:'Grande aventura', tipo:'final', destinos:2, escalaDestino:0.90, distancia:0.70 }
+        ];
 
         let instrumentos = [];
         let teclasPiano = [];
@@ -523,6 +541,7 @@
                 estrelasDescoberta = [];
                 reconfigurarEsconderijos();
             } else if (nome === 'encaixe') {
+                nivelEncaixe = 1;
                 iniciarNovaSequenciaEncaixe();
             } else if (nome === 'instrumentos') {
                 particulasSonsMagicos = [];
@@ -896,55 +915,119 @@
         /* =================================================================
            LÓGICA: ENCAIXE MÁGICO
            ================================================================= */
-        function reconfigurarEncaixes() {
-            const tam = Math.min(largura, altura) * 0.12;
-            const ladoEsquerdoX = largura * 0.28;
-            const ladoDireitoX = largura * 0.75;
+        function configurarPosicoesEncaixe() {
+            const nivel = NIVEIS_ENCAIXE[nivelEncaixe - 1] || NIVEIS_ENCAIXE[0];
+            const tamBase = Math.min(largura, altura) * 0.12;
+            const tam = tamBase * (nivel.escalaDestino || 1);
+            const origemX = largura * 0.78;
+            const origemY = altura * 0.52;
+            let destinos = [];
+
+            if (nivel.destinos === 1) {
+                if (nivel.tipo === 'vertical') {
+                    destinos.push({x: largura*0.25, y: altura*(Math.random()<0.5?0.25:0.75)});
+                } else if (nivel.tipo === 'horizontal') {
+                    destinos.push({x: largura*(Math.random()<0.5?0.22:0.34), y: altura*(0.30+Math.random()*0.40)});
+                } else if (nivel.tipo === 'diagonal') {
+                    destinos.push({x: largura*(0.18+Math.random()*0.20), y: altura*(0.20+Math.random()*0.60)});
+                } else if (nivel.tipo === 'longo') {
+                    destinos.push({x: largura*0.14, y: altura*(0.18+Math.random()*0.64)});
+                } else {
+                    destinos.push({x: largura*0.24, y: altura*(0.28+Math.random()*0.44)});
+                }
+            } else {
+                destinos = [
+                    {x: largura*0.22, y: altura*0.30},
+                    {x: largura*0.22, y: altura*0.70}
+                ];
+                if (Math.random()<0.5) destinos.reverse();
+            }
+
+            encaixes.forEach((en,i)=>{
+                en.x = destinos[i].x;
+                en.y = destinos[i].y;
+                en.tamanho = tam;
+            });
 
             if (pecaPaiEncaixe) {
-                pecaPaiEncaixe.tamanho = tam;
-                pecaPaiEncaixe.startX = ladoDireitoX;
-                pecaPaiEncaixe.startY = altura * 0.5;
-                if (!pecaPaiEncaixe.arrastando) {
-                    pecaPaiEncaixe.x = pecaPaiEncaixe.startX;
-                    pecaPaiEncaixe.y = pecaPaiEncaixe.startY;
+                pecaPaiEncaixe.tamanho = tamBase;
+                pecaPaiEncaixe.startX = origemX;
+                pecaPaiEncaixe.startY = origemY;
+                if (!pecaPaiEncaixe.arrastando && !origemSelecionadaEncaixe) {
+                    pecaPaiEncaixe.x = origemX;
+                    pecaPaiEncaixe.y = origemY;
                 }
             }
+        }
 
-            if (encaixes.length === 2) {
-                encaixes[0].x = ladoEsquerdoX;
-                encaixes[0].y = altura * 0.3;
-                encaixes[0].tamanho = tam;
-
-                encaixes[1].x = ladoEsquerdoX;
-                encaixes[1].y = altura * 0.7;
-                encaixes[1].tamanho = tam;
-            }
+        function reconfigurarEncaixes() {
+            if (!pecaPaiEncaixe && !encaixes.length) return;
+            configurarPosicoesEncaixe();
         }
 
         function iniciarNovaSequenciaEncaixe() {
             emTransicaoEncaixe = false;
-            const formaCerta = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
+            origemSelecionadaEncaixe = false;
+            movimentoEncaixeIniciado = false;
+            tempoBrilhoEncaixe = performance.now();
+            const nivel = NIVEIS_ENCAIXE[nivelEncaixe - 1] || NIVEIS_ENCAIXE[0];
+            const formaCerta = TIPOS_FORMAS[(nivelEncaixe - 1) % TIPOS_FORMAS.length];
             let formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
-            while (formaErrada === formaCerta) {
-                formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
-            }
-
+            while (formaErrada === formaCerta) formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
             const corPeca = CORES_ENCAIXE[Math.floor(Math.random() * CORES_ENCAIXE.length)];
-            const posicaoCerta = Math.random() < 0.5 ? 0 : 1;
 
-            encaixes = [
-                { tipo: posicaoCerta === 0 ? formaCerta : formaErrada, eCorreta: posicaoCerta === 0 },
-                { tipo: posicaoCerta === 1 ? formaCerta : formaErrada, eCorreta: posicaoCerta === 1 }
-            ];
+            if (nivel.destinos === 1) {
+                encaixes = [{ tipo:formaCerta, eCorreta:true }];
+            } else {
+                const corretaPrimeira = Math.random() < 0.5;
+                encaixes = [
+                    { tipo:corretaPrimeira ? formaCerta : formaErrada, eCorreta:corretaPrimeira },
+                    { tipo:corretaPrimeira ? formaErrada : formaCerta, eCorreta:!corretaPrimeira }
+                ];
+            }
 
             pecaPaiEncaixe = {
                 tipo: formaCerta,
                 cor: corPeca,
-                arrastando: false
+                arrastando: false,
+                startX: largura*0.78,
+                startY: altura*0.52,
+                x: largura*0.78,
+                y: altura*0.52
             };
-
             reconfigurarEncaixes();
+        }
+
+        function selecionarOrigemEncaixe() {
+            if (!pecaPaiEncaixe || emTransicaoEncaixe) return;
+            origemSelecionadaEncaixe = true;
+            tempoBrilhoEncaixe = performance.now();
+        }
+
+        function destinoEncaixeNoPonto(x,y) {
+            return encaixes.find(en => Math.hypot(x-en.x,y-en.y) < en.tamanho*1.55) || null;
+        }
+
+        function concluirEncaixe(en) {
+            if (!pecaPaiEncaixe || emTransicaoEncaixe || !en || !en.eCorreta) return;
+            emTransicaoEncaixe = true;
+            origemSelecionadaEncaixe = false;
+            pecaPaiEncaixe.arrastando = false;
+            pecaPaiEncaixe.x = en.x;
+            pecaPaiEncaixe.y = en.y;
+            tocarSomVitoriaEncaixe();
+            for (let i=0;i<40;i++) {
+                particulasEncaixe.push({
+                    x:en.x,y:en.y,
+                    vx:(Math.random()-0.5)*14,vy:(Math.random()-0.5)*14,
+                    raio:Math.random()*6+2,cor:pecaPaiEncaixe.cor,opacidade:1
+                });
+            }
+            setTimeout(() => {
+                if (nivelEncaixe < MAX_NIVEIS_ENCAIXE) nivelEncaixe++;
+                else nivelEncaixe = 1;
+                iniciarNovaSequenciaEncaixe();
+            }, 1300);
         }
 
         /* =================================================================
@@ -1467,8 +1550,17 @@
                 iniciarAudio();
                 if (emTransicaoEncaixe || !pecaPaiEncaixe) return;
                 const dist = Math.hypot(ptX - pecaPaiEncaixe.x, ptY - pecaPaiEncaixe.y);
+                const nivel = NIVEIS_ENCAIXE[nivelEncaixe - 1] || NIVEIS_ENCAIXE[0];
                 if (dist < pecaPaiEncaixe.tamanho * 1.8) {
-                    pecaPaiEncaixe.arrastando = true;
+                    selecionarOrigemEncaixe();
+                    movimentoEncaixeIniciado = false;
+                    if (nivel.tipo !== 'selecionar') pecaPaiEncaixe.arrastando = true;
+                } else if (origemSelecionadaEncaixe) {
+                    const destino = destinoEncaixeNoPonto(ptX,ptY);
+                    if (destino) {
+                        if (destino.eCorreta) concluirEncaixe(destino);
+                        else { origemSelecionadaEncaixe=false; pecaPaiEncaixe.x=pecaPaiEncaixe.startX; pecaPaiEncaixe.y=pecaPaiEncaixe.startY; }
+                    }
                 }
             }
         });
@@ -1482,6 +1574,7 @@
             if (jogoAtual === 'pintura' && mouseBaixoPintura) {
                 adicionarPontoPintura(ptX, ptY);
             } else if (jogoAtual === 'encaixe' && pecaPaiEncaixe && pecaPaiEncaixe.arrastando) {
+                if (Math.hypot(ptX-pecaPaiEncaixe.startX, ptY-pecaPaiEncaixe.startY) > 8) movimentoEncaixeIniciado = true;
                 pecaPaiEncaixe.x = ptX;
                 pecaPaiEncaixe.y = ptY;
             }
@@ -1497,31 +1590,21 @@
         canvas.addEventListener('pointercancel', limparToque);
 
         function soltarEncaixe() {
-            if (jogoAtual !== 'encaixe' || !pecaPaiEncaixe || !pecaPaiEncaixe.arrastando || emTransicaoEncaixe) return;
+            if (jogoAtual !== 'encaixe' || !pecaPaiEncaixe || emTransicaoEncaixe) return;
+            if (!pecaPaiEncaixe.arrastando) return;
+            if (!movimentoEncaixeIniciado) {
+                pecaPaiEncaixe.arrastando = false;
+                return;
+            }
             pecaPaiEncaixe.arrastando = false;
-
-            const encaixeCerto = encaixes.find(en => en.eCorreta);
-            const dist = Math.hypot(pecaPaiEncaixe.x - encaixeCerto.x, pecaPaiEncaixe.y - encaixeCerto.y);
-
-            if (dist < pecaPaiEncaixe.tamanho * 1.2) {
-                emTransicaoEncaixe = true;
-                pecaPaiEncaixe.x = encaixeCerto.x;
-                pecaPaiEncaixe.y = encaixeCerto.y;
-                tocarSomVitoriaEncaixe();
-                
-                for (let i = 0; i < 40; i++) {
-                    particulasEncaixe.push({
-                        x: encaixeCerto.x, y: encaixeCerto.y,
-                        vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14,
-                        raio: Math.random() * 6 + 2, cor: pecaPaiEncaixe.cor, opacidade: 1
-                    });
-                }
-
-                setTimeout(iniciarNovaSequenciaEncaixe, 1200);
+            const destino = destinoEncaixeNoPonto(pecaPaiEncaixe.x, pecaPaiEncaixe.y);
+            if (destino && destino.eCorreta) {
+                concluirEncaixe(destino);
             } else {
                 pecaPaiEncaixe.x = pecaPaiEncaixe.startX;
                 pecaPaiEncaixe.y = pecaPaiEncaixe.startY;
             }
+            movimentoEncaixeIniciado = false;
         }
 
         /* =================================================================
@@ -1924,11 +2007,22 @@
                 for(let i=ondasAquario.length-1;i>=0;i--){const o=ondasAquario[i];o.r+=2.8;o.opacidade-=.035;ctx.save();ctx.globalAlpha=Math.max(0,o.opacidade);ctx.strokeStyle='#FFF';ctx.lineWidth=3;ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,Math.PI*2);ctx.stroke();ctx.restore();if(o.opacidade<=0)ondasAquario.splice(i,1);}
 
             } else if (jogoAtual === 'encaixe') {
+                const agoraEncaixe = performance.now();
+                const nivelAtual = NIVEIS_ENCAIXE[nivelEncaixe - 1] || NIVEIS_ENCAIXE[0];
                 encaixes.forEach(en => {
                     desenharFormaGenerica(ctx, en.x, en.y, en.tamanho, en.tipo, null, true);
                 });
 
                 if (pecaPaiEncaixe) {
+                    const piscaOrigem = origemSelecionadaEncaixe || (nivelAtual.tipo === 'selecionar' || nivelAtual.tipo === 'selecionar2');
+                    if (piscaOrigem) {
+                        const pulso = 1 + Math.sin((agoraEncaixe - tempoBrilhoEncaixe)*0.008)*0.10;
+                        ctx.save();
+                        ctx.globalAlpha = 0.22 + (Math.sin((agoraEncaixe-tempoBrilhoEncaixe)*0.008)+1)*0.12;
+                        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 7;
+                        ctx.beginPath(); ctx.arc(pecaPaiEncaixe.x,pecaPaiEncaixe.y,pecaPaiEncaixe.tamanho*1.25* pulso,0,Math.PI*2); ctx.stroke();
+                        ctx.restore();
+                    }
                     desenharFormaGenerica(ctx, pecaPaiEncaixe.x, pecaPaiEncaixe.y, pecaPaiEncaixe.tamanho, pecaPaiEncaixe.tipo, pecaPaiEncaixe.cor, false);
                 }
 
@@ -1943,6 +2037,14 @@
                 particulasEncaixe = particulasEncaixe.filter(p => p.opacidade > 0);
             }
 
+            if (jogoAtual === 'encaixe') {
+                ctx.save();
+                ctx.font = 'bold ' + Math.max(16, Math.min(24, Math.min(largura,altura)*0.035)) + 'px sans-serif';
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillStyle='rgba(255,255,255,0.82)';
+                ctx.fillText('Movimentos Básicos  •  Nível ' + nivelEncaixe + ' / ' + MAX_NIVEIS_ENCAIXE, largura*0.5, altura*0.10);
+                ctx.restore();
+            }
             desenharTituloJogo();
             requestAnimationFrame(loop);
         }
