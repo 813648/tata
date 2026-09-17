@@ -196,6 +196,51 @@
             line-height: 1.2;
         }
 
+        /* Smartphones em paisagem: reservar altura para o ecrã inicial e
+           manter os oito cartões realmente centrados. */
+        @media (orientation: landscape) and (max-height: 650px) {
+            #portalHome {
+                justify-content: flex-start;
+                padding: 7px 12px 46px;
+                box-sizing: border-box;
+            }
+            .titulo-portal {
+                font-size: clamp(23px, 5vw, 31px);
+                margin: 4px 0 8px;
+            }
+            .painel-ritmo {
+                position: absolute;
+                left: 50%;
+                bottom: 5px;
+                transform: translateX(-50%);
+                flex-direction: row;
+                gap: 6px;
+                margin: 0;
+                padding: 3px 7px;
+                border-radius: 14px;
+                z-index: 3;
+            }
+            .label-ritmo { font-size: 10px; margin: 0 2px 0 0; }
+            .botoes-ritmo { gap: 4px; }
+            .btn-ritmo { padding: 4px 7px; font-size: 10px; border-width: 1px; }
+            .grid-apps {
+                width: auto;
+                max-width: 100%;
+                gap: 7px 10px;
+                margin: 0 auto;
+                justify-content: center;
+                align-content: center;
+            }
+            .card-app {
+                width: 102px;
+                height: 76px;
+                padding: 6px;
+                border-radius: 18px;
+            }
+            .card-app .icon { font-size: 29px; margin-bottom: 2px; }
+            .card-app .nome { font-size: 10px; }
+        }
+
         /* Ecrãs de smartphone: o ritmo fica discreto no fundo para libertar
            espaço vertical aos jogos do Portal. */
         @media (max-width: 600px) and (max-height: 850px) {
@@ -527,7 +572,7 @@
         let movimentoEncaixeIniciado = false;
         let ponteiroArrastoEncaixe = null;
         const MAX_NIVEIS_ENCAIXE = 10;
-        let categoriaEncaixe = 2; // A nova versão abre diretamente na Categoria 2.
+        let categoriaEncaixe = 1;
 
         const CATEGORIAS_ENCAIXE = {
             1: { nome:'Movimentos Básicos', niveis:[
@@ -1208,8 +1253,8 @@
                 if (nivelEncaixe < MAX_NIVEIS_ENCAIXE) {
                     nivelEncaixe++;
                 } else {
-                    // Depois dos 10 níveis, a categoria seguinte começa automaticamente.
-                    categoriaEncaixe = categoriaEncaixe === 1 ? 2 : 1;
+                    // Ao terminar a categoria, fica nela. A próxima categoria
+                    // é escolhida manualmente nos botões inferiores.
                     nivelEncaixe = 1;
                 }
                 iniciarNovaSequenciaEncaixe();
@@ -1661,6 +1706,34 @@
         const JOGOS_TOQUE_UNICO = new Set(['escondidas','instrumentos','aquario','baloes']);
         let ponteiroJogoUnico = null;
 
+        function botoesCategoriaEncaixe() {
+            const base = Math.min(largura, altura);
+            const w = Math.min(largura * 0.34, base * 2.15);
+            const h = Math.max(38, base * 0.075);
+            const gap = Math.max(8, base * 0.018);
+            const total = w * 2 + gap;
+            const x1 = (largura - total) / 2;
+            const y = altura * 0.885;
+            return [
+                { categoria:1, x:x1, y, w, h, texto:'Movimentos' },
+                { categoria:2, x:x1+w+gap, y, w, h, texto:'Correspondência' }
+            ];
+        }
+
+        function categoriaEncaixeNoPonto(x,y) {
+            return botoesCategoriaEncaixe().find(b => x >= b.x && x <= b.x+b.w && y >= b.y && y <= b.y+b.h) || null;
+        }
+
+        function selecionarCategoriaEncaixe(categoria) {
+            if (!CATEGORIAS_ENCAIXE[categoria]) return;
+            categoriaEncaixe = categoria;
+            nivelEncaixe = 1;
+            origemSelecionadaEncaixe = false;
+            movimentoEncaixeIniciado = false;
+            ponteiroArrastoEncaixe = null;
+            iniciarNovaSequenciaEncaixe();
+        }
+
         canvas.addEventListener('pointerdown', (e) => {
             if (!jogoAtual) return;
             if (toquesAtivos.has(e.pointerId)) return;
@@ -1743,6 +1816,11 @@
                 tocarAquario(ptX, ptY);
             } else if (jogoAtual === 'encaixe') {
                 iniciarAudio();
+                const botaoCategoria = categoriaEncaixeNoPonto(ptX, ptY);
+                if (botaoCategoria) {
+                    selecionarCategoriaEncaixe(botaoCategoria.categoria);
+                    return;
+                }
                 if (emTransicaoEncaixe || !pecaPaiEncaixe) return;
                 const dist = Math.hypot(ptX - pecaPaiEncaixe.x, ptY - pecaPaiEncaixe.y);
                 if (dist < pecaPaiEncaixe.tamanho * 1.8) {
@@ -2248,6 +2326,24 @@
             }
 
             if (jogoAtual === 'encaixe') {
+                // Seletor de categorias, inspirado nos botões do Piano Mágico.
+                const botoes = botoesCategoriaEncaixe();
+                botoes.forEach(b => {
+                    const ativo = b.categoria === categoriaEncaixe;
+                    ctx.save();
+                    ctx.fillStyle = ativo ? '#FFE082' : 'rgba(255,255,255,.88)';
+                    ctx.strokeStyle = ativo ? '#FF8F00' : 'rgba(92,67,54,.55)';
+                    ctx.lineWidth = ativo ? 3 : 1.5;
+                    ctx.beginPath();
+                    ctx.roundRect(b.x,b.y,b.w,b.h,b.h*.28);
+                    ctx.fill(); ctx.stroke();
+                    ctx.fillStyle = ativo ? '#6D3B00' : '#4E4038';
+                    ctx.font = 'bold ' + Math.max(13, Math.min(19, Math.min(largura,altura)*0.027)) + 'px sans-serif';
+                    ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillText(b.texto,b.x+b.w/2,b.y+b.h/2);
+                    ctx.restore();
+                });
+
                 ctx.save();
                 ctx.font = 'bold ' + Math.max(16, Math.min(24, Math.min(largura,altura)*0.035)) + 'px sans-serif';
                 ctx.textAlign='center'; ctx.textBaseline='middle';
