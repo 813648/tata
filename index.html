@@ -292,6 +292,7 @@
         }
 
         function abrirJogo(nomeJogo) {
+            ponteiroJogoUnico = null;
             iniciarAudio();
             jogoAtual = nomeJogo;
             portalHome.style.display = 'none';
@@ -468,6 +469,7 @@
         let origemSelecionadaEncaixe = false;
         let tempoBrilhoEncaixe = 0;
         let movimentoEncaixeIniciado = false;
+        let ponteiroArrastoEncaixe = null;
         const MAX_NIVEIS_ENCAIXE = 10;
 
         const NIVEIS_ENCAIXE = [
@@ -1469,10 +1471,19 @@
            ================================================================= */
         const toquesAtivos = new Set();
         let mouseBaixoPintura = false;
+        // Alguns jogos infantis usam apenas um toque por vez: um segundo dedo
+        // (por exemplo, a outra mão da Tatá pousada no ecrã) é ignorado até
+        // o primeiro toque terminar. Os restantes jogos mantêm multitouch.
+        const JOGOS_TOQUE_UNICO = new Set(['escondidas','instrumentos','aquario','baloes']);
+        let ponteiroJogoUnico = null;
 
         canvas.addEventListener('pointerdown', (e) => {
             if (!jogoAtual) return;
             if (toquesAtivos.has(e.pointerId)) return;
+            if (JOGOS_TOQUE_UNICO.has(jogoAtual)) {
+                if (ponteiroJogoUnico !== null && ponteiroJogoUnico !== e.pointerId) return;
+                ponteiroJogoUnico = e.pointerId;
+            }
             toquesAtivos.add(e.pointerId);
 
             const rect = canvas.getBoundingClientRect();
@@ -1554,7 +1565,8 @@
                 if (dist < pecaPaiEncaixe.tamanho * 1.8) {
                     selecionarOrigemEncaixe();
                     movimentoEncaixeIniciado = false;
-                    if (nivel.tipo !== 'selecionar') pecaPaiEncaixe.arrastando = true;
+                    pecaPaiEncaixe.arrastando = true;
+                    ponteiroArrastoEncaixe = e.pointerId;
                 } else if (origemSelecionadaEncaixe) {
                     const destino = destinoEncaixeNoPonto(ptX,ptY);
                     if (destino) {
@@ -1573,7 +1585,7 @@
 
             if (jogoAtual === 'pintura' && mouseBaixoPintura) {
                 adicionarPontoPintura(ptX, ptY);
-            } else if (jogoAtual === 'encaixe' && pecaPaiEncaixe && pecaPaiEncaixe.arrastando) {
+            } else if (jogoAtual === 'encaixe' && pecaPaiEncaixe && pecaPaiEncaixe.arrastando && ponteiroArrastoEncaixe === e.pointerId) {
                 if (Math.hypot(ptX-pecaPaiEncaixe.startX, ptY-pecaPaiEncaixe.startY) > 8) movimentoEncaixeIniciado = true;
                 pecaPaiEncaixe.x = ptX;
                 pecaPaiEncaixe.y = ptY;
@@ -1581,15 +1593,18 @@
         });
 
         function limparToque(e) {
+            if (jogoAtual === 'encaixe' && ponteiroArrastoEncaixe === e.pointerId) ponteiroArrastoEncaixe = null;
             toquesAtivos.delete(e.pointerId);
+            if (ponteiroJogoUnico === e.pointerId) ponteiroJogoUnico = null;
             mouseBaixoPintura = false;
-            soltarEncaixe();
+            soltarEncaixe(e.pointerId);
         }
 
         canvas.addEventListener('pointerup', limparToque);
         canvas.addEventListener('pointercancel', limparToque);
 
-        function soltarEncaixe() {
+        function soltarEncaixe(pointerId = null) {
+            if (jogoAtual === 'encaixe' && pointerId !== null && ponteiroArrastoEncaixe !== null && pointerId !== ponteiroArrastoEncaixe) return;
             if (jogoAtual !== 'encaixe' || !pecaPaiEncaixe || emTransicaoEncaixe) return;
             if (!pecaPaiEncaixe.arrastando) return;
             if (!movimentoEncaixeIniciado) {
