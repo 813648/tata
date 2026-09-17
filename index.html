@@ -195,6 +195,62 @@
             text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
             line-height: 1.2;
         }
+
+        /* Ecrãs de smartphone: o ritmo fica discreto no fundo para libertar
+           espaço vertical aos jogos do Portal. */
+        @media (max-width: 600px) and (max-height: 850px) {
+            #portalHome {
+                justify-content: flex-start;
+                padding: 10px 10px 58px;
+                box-sizing: border-box;
+            }
+            .titulo-portal {
+                font-size: clamp(25px, 7vw, 34px);
+                margin: 7px 0 14px;
+            }
+            .painel-ritmo {
+                position: absolute;
+                left: 50%;
+                bottom: 7px;
+                transform: translateX(-50%);
+                flex-direction: row;
+                gap: 7px;
+                margin: 0;
+                padding: 5px 8px;
+                border-radius: 16px;
+                background: rgba(0,0,0,.28);
+                box-shadow: 0 2px 8px rgba(0,0,0,.22);
+                z-index: 3;
+            }
+            .label-ritmo {
+                font-size: 11px;
+                margin: 0 2px 0 0;
+                white-space: nowrap;
+            }
+            .botoes-ritmo { gap: 5px; }
+            .btn-ritmo {
+                padding: 5px 8px;
+                font-size: 11px;
+                border-width: 1px;
+                border-radius: 14px;
+            }
+            .btn-ritmo.ativo {
+                transform: scale(1.02);
+                box-shadow: 0 0 7px rgba(255,159,26,.45);
+            }
+            .grid-apps {
+                gap: 10px;
+                max-width: 520px;
+                overflow: visible;
+            }
+            .card-app {
+                width: 112px;
+                height: 92px;
+                padding: 9px;
+            }
+            .card-app .icon { font-size: 34px; margin-bottom: 4px; }
+            .card-app .nome { font-size: 11px; }
+        }
     </style>
 </head>
 <body>
@@ -471,19 +527,45 @@
         let movimentoEncaixeIniciado = false;
         let ponteiroArrastoEncaixe = null;
         const MAX_NIVEIS_ENCAIXE = 10;
+        let categoriaEncaixe = 2; // A nova versão abre diretamente na Categoria 2.
 
-        const NIVEIS_ENCAIXE = [
-            { nome:'Arrasta até mim', tipo:'basico', destinos:1, escalaDestino:1.00, distancia:0.47 },
-            { nome:'Mais longe', tipo:'basico', destinos:1, escalaDestino:1.00, distancia:0.64 },
-            { nome:'Cima / baixo', tipo:'vertical', destinos:1, escalaDestino:1.00, distancia:0.48 },
-            { nome:'Esquerda / direita', tipo:'horizontal', destinos:1, escalaDestino:0.98, distancia:0.66 },
-            { nome:'Diagonal', tipo:'diagonal', destinos:1, escalaDestino:0.96, distancia:0.58 },
-            { nome:'Escolhe primeiro', tipo:'selecionar', destinos:1, escalaDestino:0.98, distancia:0.58 },
-            { nome:'Escolhe o destino', tipo:'escolherDestino', destinos:2, escalaDestino:0.98, distancia:0.58 },
-            { nome:'Escolha + movimento', tipo:'selecionar2', destinos:2, escalaDestino:0.94, distancia:0.64 },
-            { nome:'Caminho maior', tipo:'longo', destinos:1, escalaDestino:0.90, distancia:0.72 },
-            { nome:'Grande aventura', tipo:'final', destinos:2, escalaDestino:0.90, distancia:0.70 }
-        ];
+        const CATEGORIAS_ENCAIXE = {
+            1: { nome:'Movimentos Básicos', niveis:[
+                { nome:'Arrasta até mim', tipo:'basico', destinos:1, escalaDestino:1.00, distancia:0.47 },
+                { nome:'Mais longe', tipo:'basico', destinos:1, escalaDestino:1.00, distancia:0.64 },
+                { nome:'Cima / baixo', tipo:'vertical', destinos:1, escalaDestino:1.00, distancia:0.48 },
+                { nome:'Esquerda / direita', tipo:'horizontal', destinos:1, escalaDestino:0.98, distancia:0.66 },
+                { nome:'Diagonal', tipo:'diagonal', destinos:1, escalaDestino:0.96, distancia:0.58 },
+                { nome:'Escolhe primeiro', tipo:'selecionar', destinos:1, escalaDestino:0.98, distancia:0.58 },
+                { nome:'Escolhe o destino', tipo:'escolherDestino', destinos:2, escalaDestino:0.98, distancia:0.58 },
+                { nome:'Escolha + movimento', tipo:'selecionar2', destinos:2, escalaDestino:0.94, distancia:0.64 },
+                { nome:'Caminho maior', tipo:'longo', destinos:1, escalaDestino:0.90, distancia:0.72 },
+                { nome:'Grande aventura', tipo:'final', destinos:2, escalaDestino:0.90, distancia:0.70 }
+            ]},
+            2: { nome:'Correspondência', niveis:[
+                { nome:'Encontra a forma', tipo:'forma1', destinos:1, escalaDestino:1.00 },
+                { nome:'Escolhe a forma', tipo:'forma2', destinos:2, escalaDestino:1.00 },
+                { nome:'Procura entre três', tipo:'forma3', destinos:3, escalaDestino:0.98 },
+                { nome:'Encontra a cor', tipo:'cor2', destinos:2, escalaDestino:1.00 },
+                { nome:'Escolhe a cor', tipo:'cor3', destinos:3, escalaDestino:0.98 },
+                { nome:'Forma + cor', tipo:'mistura3', destinos:3, escalaDestino:0.96 },
+                { nome:'Outra forma, mesma cor', tipo:'formaCor3', destinos:3, escalaDestino:0.94 },
+                { nome:'Forma + cor + tamanho', tipo:'misturaTamanho3', destinos:3, escalaDestino:0.92 },
+                { nome:'Procura o par', tipo:'par4', destinos:4, escalaDestino:0.90 },
+                { nome:'Grande correspondência', tipo:'final2', destinos:4, escalaDestino:0.88 }
+            ]}
+        };
+
+        function niveisAtuaisEncaixe(){
+            return (CATEGORIAS_ENCAIXE[categoriaEncaixe] || CATEGORIAS_ENCAIXE[1]).niveis;
+        }
+        function categoriaAtualEncaixe(){
+            return CATEGORIAS_ENCAIXE[categoriaEncaixe] || CATEGORIAS_ENCAIXE[1];
+        }
+        function nivelAtualEncaixe(){
+            const niveis=niveisAtuaisEncaixe();
+            return niveis[nivelEncaixe-1] || niveis[0];
+        }
 
         let instrumentos = [];
         let teclasPiano = [];
@@ -918,14 +1000,30 @@
            LÓGICA: ENCAIXE MÁGICO
            ================================================================= */
         function configurarPosicoesEncaixe() {
-            const nivel = NIVEIS_ENCAIXE[nivelEncaixe - 1] || NIVEIS_ENCAIXE[0];
+            const nivel = nivelAtualEncaixe();
             const tamBase = Math.min(largura, altura) * 0.12;
             const tam = tamBase * (nivel.escalaDestino || 1);
             const origemX = largura * 0.78;
             const origemY = altura * 0.52;
             let destinos = [];
 
-            if (nivel.destinos === 1) {
+            if (categoriaEncaixe === 2) {
+                const n = nivel.destinos || 1;
+                const colunas = n <= 2 ? 2 : 2;
+                const linhas = Math.ceil(n / colunas);
+                const xBase = n <= 2 ? [0.27,0.52] : [0.20,0.43];
+                const yBase = linhas === 1 ? [0.50] : [0.29,0.71];
+                for(let i=0;i<n;i++){
+                    const col=i%colunas, lin=Math.floor(i/colunas);
+                    destinos.push({x:largura*(xBase[col] ?? 0.43), y:altura*(yBase[lin] ?? 0.50)});
+                }
+                if(n===4){
+                    destinos=[
+                        {x:largura*.18,y:altura*.27},{x:largura*.42,y:altura*.27},
+                        {x:largura*.18,y:altura*.73},{x:largura*.42,y:altura*.73}
+                    ];
+                }
+            } else if (nivel.destinos === 1) {
                 if (nivel.tipo === 'vertical') {
                     destinos.push({x: largura*0.25, y: altura*(Math.random()<0.5?0.25:0.75)});
                 } else if (nivel.tipo === 'horizontal') {
@@ -971,31 +1069,112 @@
             emTransicaoEncaixe = false;
             origemSelecionadaEncaixe = false;
             movimentoEncaixeIniciado = false;
+            ponteiroArrastoEncaixe = null;
             tempoBrilhoEncaixe = performance.now();
-            const nivel = NIVEIS_ENCAIXE[nivelEncaixe - 1] || NIVEIS_ENCAIXE[0];
+            const nivel = nivelAtualEncaixe();
             const formaCerta = TIPOS_FORMAS[(nivelEncaixe - 1) % TIPOS_FORMAS.length];
-            let formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
-            while (formaErrada === formaCerta) formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
-            const corPeca = CORES_ENCAIXE[Math.floor(Math.random() * CORES_ENCAIXE.length)];
+            const corCerta = CORES_ENCAIXE[(nivelEncaixe + 1) % CORES_ENCAIXE.length];
 
-            if (nivel.destinos === 1) {
-                encaixes = [{ tipo:formaCerta, eCorreta:true }];
+            if (categoriaEncaixe === 2) {
+                const outrasFormas = TIPOS_FORMAS.filter(t => t !== formaCerta);
+                const outrasCores = CORES_ENCAIXE.filter(c => c !== corCerta);
+                const n = nivel.destinos || 1;
+                encaixes = [];
+
+                // O primeiro destino é sempre o par correto. Os restantes são
+                // distratores desenhados para ensinar uma única diferença de cada vez.
+                encaixes.push({
+                    tipo: formaCerta,
+                    corDestino: corCerta,
+                    eCorreta: true,
+                    tamanhoExtra: 1,
+                    silhueta: nivel.tipo === 'forma1' || nivel.tipo === 'forma2' || nivel.tipo === 'forma3'
+                });
+
+                if (nivel.tipo === 'forma2' || nivel.tipo === 'forma3') {
+                    for(let i=1;i<n;i++) encaixes.push({
+                        tipo: outrasFormas[(i-1)%outrasFormas.length],
+                        corDestino: corCerta,
+                        eCorreta: false,
+                        tamanhoExtra: 1,
+                        silhueta: true
+                    });
+                } else if (nivel.tipo === 'cor2' || nivel.tipo === 'cor3') {
+                    for(let i=1;i<n;i++) encaixes.push({
+                        tipo: formaCerta,
+                        corDestino: outrasCores[(i-1)%outrasCores.length],
+                        eCorreta: false,
+                        tamanhoExtra: 1,
+                        silhueta: false
+                    });
+                } else if (nivel.tipo === 'mistura3') {
+                    for(let i=1;i<n;i++) encaixes.push({
+                        tipo: outrasFormas[(i-1)%outrasFormas.length],
+                        corDestino: outrasCores[(i-1)%outrasCores.length],
+                        eCorreta: false,
+                        tamanhoExtra: 1,
+                        silhueta: false
+                    });
+                } else if (nivel.tipo === 'formaCor3') {
+                    for(let i=1;i<n;i++) encaixes.push({
+                        tipo: outrasFormas[(i-1)%outrasFormas.length],
+                        corDestino: corCerta,
+                        eCorreta: false,
+                        tamanhoExtra: 1,
+                        silhueta: false
+                    });
+                } else if (nivel.tipo === 'misturaTamanho3') {
+                    const tamanhos = [1.24, 0.76];
+                    for(let i=1;i<n;i++) encaixes.push({
+                        tipo: formaCerta,
+                        corDestino: corCerta,
+                        eCorreta: false,
+                        tamanhoExtra: tamanhos[(i-1)%tamanhos.length],
+                        silhueta: false
+                    });
+                } else {
+                    // Níveis 9 e 10: quatro pares visualmente diferentes.
+                    for(let i=1;i<n;i++) encaixes.push({
+                        tipo: outrasFormas[(i-1)%outrasFormas.length],
+                        corDestino: outrasCores[(i-1)%outrasCores.length],
+                        eCorreta: false,
+                        tamanhoExtra: [0.86,1.14,0.94][(i-1)%3],
+                        silhueta: false
+                    });
+                }
+
+                // Mistura ligeiramente a posição dos destinos, mas nunca a sua função.
+                encaixes = encaixes.sort(() => Math.random() - 0.5);
+                // Mantemos exatamente um destino correto, independentemente da posição.
             } else {
-                const corretaPrimeira = Math.random() < 0.5;
-                encaixes = [
-                    { tipo:corretaPrimeira ? formaCerta : formaErrada, eCorreta:corretaPrimeira },
-                    { tipo:corretaPrimeira ? formaErrada : formaCerta, eCorreta:!corretaPrimeira }
-                ];
+                let formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
+                while (formaErrada === formaCerta) formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
+                const corPeca = CORES_ENCAIXE[Math.floor(Math.random() * CORES_ENCAIXE.length)];
+                if (nivel.destinos === 1) {
+                    encaixes = [{ tipo:formaCerta, eCorreta:true }];
+                } else {
+                    const corretaPrimeira = Math.random() < 0.5;
+                    encaixes = [
+                        { tipo:corretaPrimeira ? formaCerta : formaErrada, eCorreta:corretaPrimeira },
+                        { tipo:corretaPrimeira ? formaErrada : formaCerta, eCorreta:!corretaPrimeira }
+                    ];
+                }
+                pecaPaiEncaixe = {
+                    tipo:formaCerta, cor:corPeca, arrastando:false,
+                    startX:largura*0.78,startY:altura*0.52,x:largura*0.78,y:altura*0.52
+                };
+                reconfigurarEncaixes();
+                return;
             }
 
             pecaPaiEncaixe = {
-                tipo: formaCerta,
-                cor: corPeca,
-                arrastando: false,
-                startX: largura*0.78,
-                startY: altura*0.52,
-                x: largura*0.78,
-                y: altura*0.52
+                tipo:formaCerta,
+                cor:corCerta,
+                arrastando:false,
+                startX:largura*0.78,
+                startY:altura*0.52,
+                x:largura*0.78,
+                y:altura*0.52
             };
             reconfigurarEncaixes();
         }
@@ -1026,8 +1205,13 @@
                 });
             }
             setTimeout(() => {
-                if (nivelEncaixe < MAX_NIVEIS_ENCAIXE) nivelEncaixe++;
-                else nivelEncaixe = 1;
+                if (nivelEncaixe < MAX_NIVEIS_ENCAIXE) {
+                    nivelEncaixe++;
+                } else {
+                    // Depois dos 10 níveis, a categoria seguinte começa automaticamente.
+                    categoriaEncaixe = categoriaEncaixe === 1 ? 2 : 1;
+                    nivelEncaixe = 1;
+                }
                 iniciarNovaSequenciaEncaixe();
             }, 1300);
         }
@@ -1561,7 +1745,6 @@
                 iniciarAudio();
                 if (emTransicaoEncaixe || !pecaPaiEncaixe) return;
                 const dist = Math.hypot(ptX - pecaPaiEncaixe.x, ptY - pecaPaiEncaixe.y);
-                const nivel = NIVEIS_ENCAIXE[nivelEncaixe - 1] || NIVEIS_ENCAIXE[0];
                 if (dist < pecaPaiEncaixe.tamanho * 1.8) {
                     selecionarOrigemEncaixe();
                     movimentoEncaixeIniciado = false;
@@ -2023,9 +2206,21 @@
 
             } else if (jogoAtual === 'encaixe') {
                 const agoraEncaixe = performance.now();
-                const nivelAtual = NIVEIS_ENCAIXE[nivelEncaixe - 1] || NIVEIS_ENCAIXE[0];
+                const nivelAtual = nivelAtualEncaixe();
                 encaixes.forEach(en => {
-                    desenharFormaGenerica(ctx, en.x, en.y, en.tamanho, en.tipo, null, true);
+                    const tamEncaixe = en.tamanho * (en.tamanhoExtra || 1);
+                    if (categoriaEncaixe === 2) {
+                        desenharFormaGenerica(ctx, en.x, en.y, tamEncaixe, en.tipo, en.corDestino || '#FFFFFF', !!en.silhueta);
+                        ctx.save();
+                        ctx.globalAlpha = 0.28;
+                        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.arc(en.x, en.y, tamEncaixe*1.18, 0, Math.PI*2);
+                        ctx.stroke();
+                        ctx.restore();
+                    } else {
+                        desenharFormaGenerica(ctx, en.x, en.y, tamEncaixe, en.tipo, null, true);
+                    }
                 });
 
                 if (pecaPaiEncaixe) {
@@ -2057,7 +2252,7 @@
                 ctx.font = 'bold ' + Math.max(16, Math.min(24, Math.min(largura,altura)*0.035)) + 'px sans-serif';
                 ctx.textAlign='center'; ctx.textBaseline='middle';
                 ctx.fillStyle='rgba(255,255,255,0.82)';
-                ctx.fillText('Movimentos Básicos  •  Nível ' + nivelEncaixe + ' / ' + MAX_NIVEIS_ENCAIXE, largura*0.5, altura*0.10);
+                ctx.fillText(categoriaAtualEncaixe().nome + '  •  Nível ' + nivelEncaixe + ' / ' + MAX_NIVEIS_ENCAIXE, largura*0.5, altura*0.10);
                 ctx.restore();
             }
             desenharTituloJogo();
