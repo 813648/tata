@@ -147,21 +147,22 @@
         /* Grelha das Apps */
         .grid-apps {
             display: grid;
-            grid-template-columns: repeat(4, minmax(70px, 124px));
-            grid-template-rows: repeat(2, minmax(78px, 118px));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-rows: repeat(2, minmax(0, 1fr));
             justify-content: center;
             align-content: center;
             gap: 12px 14px;
-            max-width: 540px;
-            width: min(100%, 540px);
-            flex: 1 1 auto;
-            min-height: 0;
+            width: min(92vw, 560px);
+            aspect-ratio: 2 / 1;
+            flex: 0 0 auto;
+            margin: auto;
             box-sizing: border-box;
         }
 
         .card-app {
             width: 100%;
             height: 100%;
+            aspect-ratio: 1 / 1;
             min-width: 0;
             min-height: 0;
             box-sizing: border-box;
@@ -216,13 +217,14 @@
             .btn-ritmo { padding: 4px 7px; font-size: 10px; border-width: 1px; }
             .grid-apps {
                 grid-template-columns: repeat(4, minmax(0, 1fr));
-                grid-template-rows: repeat(2, minmax(70px, 1fr));
+                grid-template-rows: repeat(2, minmax(0, 1fr));
                 gap: 8px;
-                width: min(100%, 520px);
-                max-width: 520px;
-                flex: 1 1 auto;
+                width: min(92vw, 520px);
+                aspect-ratio: 2 / 1;
+                flex: 0 0 auto;
+                margin: auto;
             }
-            .card-app { width: 100%; height: 100%; min-height: 0; border-radius: 18px; padding: 5px; }
+            .card-app { width: 100%; height: 100%; min-height: 0; aspect-ratio: 1 / 1; border-radius: 18px; padding: 5px; }
             .card-app .icon { font-size: clamp(25px, 6vw, 34px); margin-bottom: 3px; }
             .card-app .nome { font-size: clamp(9px, 2.2vw, 11px); }
         }
@@ -233,8 +235,8 @@
             .painel-ritmo { padding: 3px 7px; margin-bottom: 5px; }
             .label-ritmo { font-size: 9px; }
             .btn-ritmo { padding: 3px 6px; font-size: 9px; }
-            .grid-apps { gap: 6px 9px; max-width: 500px; grid-template-rows: repeat(2, minmax(68px, 1fr)); }
-            .card-app { border-radius: 16px; }
+            .grid-apps { gap: 6px 9px; width: min(92vw, 520px); aspect-ratio: 2 / 1; grid-template-rows: repeat(2, minmax(0, 1fr)); margin: auto; }
+            .card-app { border-radius: 16px; aspect-ratio: 1 / 1; }
         }
     </style>
 </head>
@@ -2026,40 +2028,95 @@
                 ctx.closePath();
             }
 
-            if (tipo === 'chave') {
-                const r=tamanho;
-                // Cada modelo tem uma dentição própria. A fechadura correspondente
-                // usa exatamente o mesmo perfil, criando uma relação visual clara.
-                const dentes = [
-                    [0.48,0.22,0.62,0.38],
-                    [0.48,0.38,0.62,0.20],
-                    [0.48,0.18,0.62,0.42],
-                    [0.48,0.34,0.62,0.26]
-                ][modelo % 4];
-                ctx.moveTo(-r*0.95,-r*0.12); ctx.lineTo(r*dentes[0],-r*0.12);
-                ctx.lineTo(r*dentes[1],-r*0.45); ctx.lineTo(r*dentes[2],-r*0.45);
-                ctx.lineTo(r*dentes[2],-r*0.05); ctx.lineTo(r*dentes[3],-r*0.05);
-                ctx.lineTo(r*dentes[3],r*0.40); ctx.lineTo(r*0.35,r*0.12); ctx.lineTo(-r*0.95,r*0.12);
-                ctx.arc(-r*0.72,0,r*0.34,Math.PI*0.15,Math.PI*1.85,true); ctx.closePath();
-            } else if (tipo === 'fechadura') {
-                const r=tamanho;
-                const formas = [
-                    {rx:.72, ry:.72, rr:.20},
-                    {rx:.82, ry:.62, rr:.28},
-                    {rx:.68, ry:.78, rr:.12},
-                    {rx:.76, ry:.68, rr:.34}
+            /* =============================================================
+               Categoria 3 — a chave e a fechadura usam EXATAMENTE o mesmo
+               perfil. A diferença visual é apenas que a chave aparece cheia
+               e a fechadura aparece como o mesmo perfil em modo de encaixe.
+               ============================================================= */
+            if (tipo === 'chave' || tipo === 'fechadura') {
+                const r = tamanho;
+                const perfis = [
+                    // Perfil 0 — cabeça redonda + duas saliências
+                    function(){
+                        ctx.moveTo(-r*0.76, 0);
+                        ctx.arc(-r*0.76, 0, r*0.34, Math.PI*0.15, Math.PI*1.85, true);
+                        ctx.lineTo(r*0.28, r*0.12);
+                        ctx.lineTo(r*0.28, r*0.42);
+                        ctx.lineTo(r*0.62, r*0.42);
+                        ctx.lineTo(r*0.62, r*0.12);
+                        ctx.lineTo(r*0.94, r*0.12);
+                        ctx.lineTo(r*0.94, -r*0.22);
+                        ctx.lineTo(r*0.42, -r*0.22);
+                        ctx.lineTo(r*0.42, -r*0.48);
+                        ctx.lineTo(r*0.08, -r*0.48);
+                        ctx.lineTo(r*0.08, -r*0.12);
+                        ctx.lineTo(-r*0.76, -r*0.12);
+                        ctx.closePath();
+                    },
+                    // Perfil 1 — cabeça quadrada + dentição baixa
+                    function(){
+                        ctx.moveTo(-r*0.96,-r*0.34);
+                        ctx.roundRect(-r*0.96,-r*0.34,r*0.68,r*0.68,r*0.14);
+                        ctx.moveTo(-r*0.30,-r*0.13);
+                        ctx.lineTo(r*0.30,-r*0.13);
+                        ctx.lineTo(r*0.30,-r*0.44);
+                        ctx.lineTo(r*0.60,-r*0.44);
+                        ctx.lineTo(r*0.60,-r*0.10);
+                        ctx.lineTo(r*0.96,-r*0.10);
+                        ctx.lineTo(r*0.96,r*0.22);
+                        ctx.lineTo(r*0.58,r*0.22);
+                        ctx.lineTo(r*0.58,r*0.46);
+                        ctx.lineTo(r*0.30,r*0.46);
+                        ctx.lineTo(r*0.30,r*0.13);
+                        ctx.lineTo(-r*0.30,r*0.13);
+                        ctx.closePath();
+                    },
+                    // Perfil 2 — cabeça triangular + dentição alternada
+                    function(){
+                        ctx.moveTo(-r*0.92,0);
+                        ctx.lineTo(-r*0.54,-r*0.52);
+                        ctx.lineTo(-r*0.06,-r*0.28);
+                        ctx.lineTo(r*0.28,-r*0.28);
+                        ctx.lineTo(r*0.28,-r*0.54);
+                        ctx.lineTo(r*0.58,-r*0.54);
+                        ctx.lineTo(r*0.58,-r*0.12);
+                        ctx.lineTo(r*0.94,-r*0.12);
+                        ctx.lineTo(r*0.94,r*0.22);
+                        ctx.lineTo(r*0.56,r*0.22);
+                        ctx.lineTo(r*0.56,r*0.50);
+                        ctx.lineTo(r*0.28,r*0.50);
+                        ctx.lineTo(r*0.28,r*0.10);
+                        ctx.lineTo(-r*0.06,r*0.28);
+                        ctx.lineTo(-r*0.54,r*0.52);
+                        ctx.closePath();
+                    },
+                    // Perfil 3 — cabeça redonda + dentição dupla
+                    function(){
+                        ctx.arc(-r*0.60,0,r*0.38,0,Math.PI*2);
+                        ctx.moveTo(-r*0.26,-r*0.14);
+                        ctx.lineTo(r*0.18,-r*0.14);
+                        ctx.lineTo(r*0.18,-r*0.46);
+                        ctx.lineTo(r*0.48,-r*0.46);
+                        ctx.lineTo(r*0.48,-r*0.16);
+                        ctx.lineTo(r*0.92,-r*0.16);
+                        ctx.lineTo(r*0.92,r*0.18);
+                        ctx.lineTo(r*0.54,r*0.18);
+                        ctx.lineTo(r*0.54,r*0.48);
+                        ctx.lineTo(r*0.22,r*0.48);
+                        ctx.lineTo(r*0.22,r*0.14);
+                        ctx.lineTo(-r*0.26,r*0.14);
+                        ctx.closePath();
+                    }
                 ];
-                const f = formas[modelo % 4];
-                if(ctx.roundRect) ctx.roundRect(-r*f.rx,-r*f.ry,r*f.rx*2,r*f.ry*2,r*f.rr);
-                else ctx.rect(-r*f.rx,-r*f.ry,r*f.rx*2,r*f.ry*2);
+                perfis[modelo % perfis.length]();
             }
 
             if (eSilhueta) {
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; 
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
                 ctx.fill();
-                ctx.lineWidth = 3; 
+                ctx.lineWidth = 3;
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                ctx.setLineDash([8, 8]); 
+                ctx.setLineDash([8, 8]);
                 ctx.stroke();
             } else {
                 ctx.fillStyle = cor; ctx.shadowBlur = 15; ctx.shadowColor = cor;
@@ -2298,26 +2355,33 @@
                     const tamEncaixe = en.tamanho * (en.tamanhoExtra || 1);
                     if (categoriaEncaixe === 3) {
                         const modelo = en.modelo || 0;
-                        desenharFormaGenerica(ctx, en.x, en.y, tamEncaixe, 'fechadura', en.corDestino || '#FFFFFF', false, modelo);
-                        ctx.save();
-                        ctx.fillStyle='rgba(15,15,26,.86)';
-                        ctx.translate(en.x,en.y);
-                        ctx.rotate((modelo % 4) * Math.PI/2);
-                        ctx.beginPath();
-                        if (modelo === 0) {
-                            ctx.arc(0,-tamEncaixe*.16,tamEncaixe*.18,0,Math.PI*2); ctx.fill();
-                            ctx.roundRect(-tamEncaixe*.055,-tamEncaixe*.02,tamEncaixe*.11,tamEncaixe*.30,tamEncaixe*.04); ctx.fill();
-                        } else if (modelo === 1) {
-                            ctx.roundRect(-tamEncaixe*.18,-tamEncaixe*.18,tamEncaixe*.36,tamEncaixe*.36,tamEncaixe*.08); ctx.fill();
-                            ctx.fillRect(-tamEncaixe*.055,tamEncaixe*.08,tamEncaixe*.11,tamEncaixe*.27);
-                        } else if (modelo === 2) {
-                            ctx.moveTo(0,-tamEncaixe*.22); ctx.lineTo(tamEncaixe*.19,0); ctx.lineTo(0,tamEncaixe*.22); ctx.lineTo(-tamEncaixe*.19,0); ctx.closePath(); ctx.fill();
-                            ctx.fillRect(-tamEncaixe*.055,tamEncaixe*.12,tamEncaixe*.11,tamEncaixe*.24);
-                        } else {
-                            ctx.arc(0,0,tamEncaixe*.20,0,Math.PI*2); ctx.fill();
-                            ctx.fillRect(-tamEncaixe*.06,tamEncaixe*.10,tamEncaixe*.12,tamEncaixe*.25);
+                        // A fechadura é o mesmo perfil da chave. Quando a chave
+                        // correta se aproxima, o perfil inteiro ganha a mesma cor.
+                        const distancia = pecaPaiEncaixe ? Math.hypot(pecaPaiEncaixe.x - en.x, pecaPaiEncaixe.y - en.y) : Infinity;
+                        const aproximada = en.eCorreta && distancia < tamEncaixe * 2.05;
+                        const corFechadura = aproximada ? (pecaPaiEncaixe.cor || en.corDestino || '#FFFFFF') : (en.corDestino || '#FFFFFF');
+                        if (aproximada) {
+                            ctx.save();
+                            ctx.globalAlpha = 0.20;
+                            ctx.fillStyle = corFechadura;
+                            ctx.shadowBlur = 24; ctx.shadowColor = corFechadura;
+                            ctx.beginPath(); ctx.arc(en.x,en.y,tamEncaixe*1.55,0,Math.PI*2); ctx.fill();
+                            ctx.restore();
                         }
+                        ctx.save();
+                        ctx.globalAlpha = aproximada ? 1 : 0.28;
+                        desenharFormaGenerica(ctx, en.x, en.y, tamEncaixe, 'fechadura', corFechadura, false, modelo);
                         ctx.restore();
+                        if (!aproximada) {
+                            // Pequeno detalhe visual: continua a ser a mesma forma,
+                            // mas fica claro que aquele perfil é a fechadura.
+                            ctx.save();
+                            ctx.fillStyle='rgba(25,20,30,.55)';
+                            ctx.beginPath();
+                            ctx.arc(en.x,en.y,tamEncaixe*.10,0,Math.PI*2);
+                            ctx.fill();
+                            ctx.restore();
+                        }
                     } else if (categoriaEncaixe === 2) {
 
                         ctx.save();
