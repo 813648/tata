@@ -307,7 +307,7 @@
         </div>
     </div>
 
-    <div id="versaoPortal">v13</div>
+    <div id="versaoPortal">v14</div>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -532,7 +532,7 @@
         let ponteiroArrastoEncaixe = null;
         const MAX_NIVEIS_ENCAIXE = 10;
         let categoriaEncaixe = 1;
-        const VERSAO_PORTAL = 'v13';
+        const VERSAO_PORTAL = 'v14';
 
         const CATEGORIAS_ENCAIXE = {
             1: { nome:'Movimentos Básicos', niveis:[
@@ -1749,12 +1749,16 @@
 
         function botoesCategoriaEncaixe() {
             const base = Math.min(largura, altura);
-            const w = Math.min(largura * 0.28, base * 1.72);
-            const h = Math.max(36, base * 0.07);
             const gap = Math.max(7, base * 0.015);
+            const margem = Math.max(12, base * 0.025);
+            const larguraDisponivel = Math.max(120, largura - margem * 2 - gap * 2);
+            const w = Math.min(base * 1.72, larguraDisponivel / 3);
+            const h = Math.max(34, Math.min(48, base * 0.07));
             const total = w * 3 + gap * 2;
             const x1 = (largura - total) / 2;
-            const y = altura * 0.885;
+            // Os botões ficam junto ao topo, logo abaixo do título, evitando
+            // toques acidentais na zona inferior do jogo.
+            const y = Math.max(48, altura * 0.115);
             return [
                 { categoria:1, x:x1, y, w, h, texto:'Movimentos' },
                 { categoria:2, x:x1+w+gap, y, w, h, texto:'Correspondência' },
@@ -2206,15 +2210,15 @@
         }
 
         function desenharFormaGenerica(ctx, x, y, tamanho, tipo, cor, eSilhueta = false, modelo = 0) {
+            // A peça Molde/Peça usa coordenadas absolutas; tratá-la antes do translate
+            // evita deslocá-la duas vezes para fora do ecrã.
+            if (tipo === 'peca_molde') {
+                desenharIconeMoldePeca(x, y, tamanho, modelo || 'maça', 'peca', cor || '#FF8A65', false);
+                return;
+            }
             ctx.save();
             ctx.translate(x, y);
             ctx.beginPath();
-
-            if (tipo === 'peca_molde') {
-                desenharIconeMoldePeca(x, y, tamanho, modelo || 'maça', 'peca', cor || '#FF8A65', false);
-                ctx.restore();
-                return;
-            }
 
             if (tipo === 'circulo') {
                 ctx.arc(0, 0, tamanho, 0, Math.PI * 2);
@@ -2410,7 +2414,7 @@
             ctx.fillStyle='rgba(255,255,255,.94)';
             ctx.shadowColor='rgba(0,0,0,.38)';ctx.shadowBlur=7;
             ctx.font=`bold ${Math.max(22,Math.min(31,largura*.025))}px sans-serif`;
-            ctx.fillText(titulo,largura/2,altura*.055);
+            ctx.fillText(titulo,largura/2,altura*.048);
             ctx.restore();
         }
 
