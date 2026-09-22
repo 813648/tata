@@ -307,7 +307,7 @@
         </div>
     </div>
 
-    <div id="versaoPortal">v14</div>
+    <div id="versaoPortal">v15</div>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -532,7 +532,7 @@
         let ponteiroArrastoEncaixe = null;
         const MAX_NIVEIS_ENCAIXE = 10;
         let categoriaEncaixe = 1;
-        const VERSAO_PORTAL = 'v14';
+        const VERSAO_PORTAL = 'v15';
 
         const CATEGORIAS_ENCAIXE = {
             1: { nome:'Movimentos Básicos', niveis:[
@@ -2162,17 +2162,7 @@
                 }
             } else {
                 // Peça: mesmo ícone a cores, claramente mais pequena que o molde.
-                // Um pequeno disco translúcido garante que a peça nunca desaparece no fundo.
-                ctx.save();
-                ctx.globalAlpha = 0.20;
-                ctx.fillStyle = corMolde || '#FFFFFF';
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = corMolde || '#FFFFFF';
-                ctx.beginPath();
-                ctx.arc(x, y, Math.max(18, tamanho * 0.82), 0, Math.PI*2);
-                ctx.fill();
-                ctx.restore();
-
+                // Sem disco/halo: queremos que a própria peça seja o elemento visual.
                 ctx.textAlign='center'; ctx.textBaseline='middle';
                 ctx.font = `${Math.max(20, Math.round(tamanho * 1.48))}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
                 ctx.lineWidth = Math.max(2, tamanho * 0.05);
