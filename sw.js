@@ -1,22 +1,18 @@
-const CACHE_NAME = 'portal-magico-tata-v12';
-const APP_SHELL = ['./', './index.html', './icone.svg', './icone-192.png', './icone-512.png'];
-
+const CACHE_NAME = 'portal-magico-tata-v13';
+const APP_SHELL = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icone.svg',
+  './icone-192.png',
+  './icone-512.png'
+];
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
-  );
-  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
 });
-
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-    ))
-  );
-  self.clients.claim();
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
-
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
