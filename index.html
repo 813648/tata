@@ -307,7 +307,7 @@
         </div>
     </div>
 
-    <div id="versaoPortal">v11</div>
+    <div id="versaoPortal">v12</div>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -560,16 +560,16 @@
                 { nome:'Grande correspondência', tipo:'final2', destinos:4, escalaDestino:0.88 }
             ]},
             3: { nome:'Molde e Peça', niveis:[
-                { nome:'Duas escolhas', tipo:'molde2_maça', destinos:2, escalaDestino:0.92, modelos:['maça','casa'], correta:'maça' },
-                { nome:'Outra escolha', tipo:'molde2_garrafa', destinos:2, escalaDestino:0.92, modelos:['carro','garrafa'], correta:'garrafa' },
-                { nome:'Perfil mais rico', tipo:'molde2_aviao', destinos:2, escalaDestino:0.90, modelos:['aviao','guitarra'], correta:'aviao' },
-                { nome:'Três moldes', tipo:'molde3_carro', destinos:3, escalaDestino:0.88, modelos:['maça','casa','carro'], correta:'carro' },
-                { nome:'Três perfis', tipo:'molde3_guitarra', destinos:3, escalaDestino:0.88, modelos:['garrafa','aviao','guitarra'], correta:'guitarra' },
-                { nome:'Quatro escolhas', tipo:'molde4_casa', destinos:4, escalaDestino:0.84, modelos:['casa','carro','garrafa','maça'], correta:'casa' },
-                { nome:'Objetos mais ricos', tipo:'molde3_telefone', destinos:3, escalaDestino:0.84, modelos:['aviao','telefone','guitarra'], correta:'telefone' },
-                { nome:'Quatro perfis', tipo:'molde4_carro', destinos:4, escalaDestino:0.82, modelos:['carro','telefone','garrafa','guitarra'], correta:'carro' },
-                { nome:'Escolhe o perfil', tipo:'molde4_guitarra', destinos:4, escalaDestino:0.80, modelos:['aviao','guitarra','telefone','casa'], correta:'guitarra' },
-                { nome:'Grande aventura', tipo:'molde4_aviao', destinos:4, escalaDestino:0.78, modelos:['aviao','guitarra','telefone','carro'], correta:'aviao' }
+                { nome:'Duas escolhas', tipo:'molde2_icone', destinos:2, escalaDestino:0.96, modelos:['maça','sapato'], correta:'maça' },
+                { nome:'Outra escolha', tipo:'molde2_icone', destinos:2, escalaDestino:0.96, modelos:['casa','barco'], correta:'barco' },
+                { nome:'Perfis simples', tipo:'molde2_icone', destinos:2, escalaDestino:0.94, modelos:['carro','garrafa'], correta:'carro' },
+                { nome:'Três moldes', tipo:'molde3_icone', destinos:3, escalaDestino:0.92, modelos:['maça','aviao','colher'], correta:'colher' },
+                { nome:'Três perfis', tipo:'molde3_icone', destinos:3, escalaDestino:0.92, modelos:['sapato','guitarra','casa'], correta:'guitarra' },
+                { nome:'Quatro escolhas', tipo:'molde4_icone', destinos:4, escalaDestino:0.88, modelos:['telefone','bola','aviao','copo'], correta:'telefone' },
+                { nome:'Objetos diferentes', tipo:'molde4_icone', destinos:4, escalaDestino:0.86, modelos:['guitarra','colher','garrafa','casa'], correta:'garrafa' },
+                { nome:'Perfis mais ricos', tipo:'molde4_icone', destinos:4, escalaDestino:0.84, modelos:['carro','telefone','sapato','barco'], correta:'sapato' },
+                { nome:'Escolhe o perfil', tipo:'molde4_icone', destinos:4, escalaDestino:0.82, modelos:['aviao','guitarra','bola','telefone'], correta:'bola' },
+                { nome:'Grande aventura', tipo:'molde4_icone', destinos:4, escalaDestino:0.80, modelos:['casa','carro','guitarra','colher'], correta:'guitarra' }
             ]}
         };
 
@@ -1071,7 +1071,7 @@
                 pecaPaiEncaixe.startY = altura*0.52;
                 pecaPaiEncaixe.x = largura*0.78;
                 pecaPaiEncaixe.y = altura*0.52;
-                pecaPaiEncaixe.tamanho = Math.min(largura, altura) * 0.12;
+                pecaPaiEncaixe.tamanho = tamMolde * 0.76;
                 const moldeCorreto = encaixes.find(en => en.eCorreta);
                 pecaPaiEncaixe.cor = moldeCorreto ? moldeCorreto.corDestino : coresMoldes[0];
                 return;
@@ -2096,35 +2096,74 @@
             }
         }
 
+        const ICONES_MOLDE_PECA = {
+            maça: '🍎',
+            casa: '🏠',
+            carro: '🚗',
+            garrafa: '🍼',
+            aviao: '✈️',
+            guitarra: '🎸',
+            telefone: '📱',
+            colher: '🥄',
+            sapato: '👟',
+            bola: '⚽',
+            barco: '⛵',
+            copo: '🥛'
+        };
+
+        function desenharIconeMoldePeca(x, y, tamanho, nome, modo, corMolde, aproximada = false) {
+            const icone = ICONES_MOLDE_PECA[nome] || '⭐';
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `${Math.max(18, Math.round(tamanho * 1.62))}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+
+            if (modo === 'molde') {
+                // É exactamente o mesmo ícone da peça, apenas escurecido.
+                // O molde fica imediatamente reconhecível sem criar outro desenho.
+                ctx.save();
+                ctx.globalAlpha = aproximada ? 0.18 : 0.94;
+                ctx.filter = 'grayscale(1) brightness(0.16) contrast(1.25)';
+                ctx.fillText(icone, x, y + 1);
+                ctx.restore();
+
+                if (aproximada) {
+                    // O preenchimento do molde cresce visualmente quando a peça se aproxima.
+                    ctx.save();
+                    ctx.globalAlpha = 0.80;
+                    ctx.fillStyle = corMolde || '#FFFFFF';
+                    ctx.beginPath();
+                    ctx.arc(x, y, tamanho * 0.54, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            } else {
+                // A peça usa o mesmo ícone, a cores, e fica deliberadamente menor que o molde.
+                ctx.save();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = corMolde || '#FFFFFF';
+                ctx.fillText(icone, x, y);
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
         function desenharMoldeEncaixe(en, tamanho, aproximada) {
             const cor = en.corDestino || '#5CC8FF';
             const perfil = en.modeloObjeto || 'maça';
             ctx.save();
-            ctx.shadowBlur = aproximada ? 26 : 14;
+            ctx.shadowBlur = aproximada ? 24 : 12;
             ctx.shadowColor = cor;
             ctx.fillStyle = cor;
             ctx.beginPath();
-            ctx.arc(en.x,en.y,tamanho*1.12,0,Math.PI*2);
+            ctx.arc(en.x, en.y, tamanho * 1.12, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
-
-            // O recorte negro é exatamente o mesmo perfil da peça e fica
-            // centrado no interior do molde.
-            ctx.save();
-            ctx.translate(en.x, en.y);
-            ctx.beginPath();
-            construirPerfilObjeto(ctx, perfil, tamanho*0.78);
-            ctx.fillStyle = aproximada ? cor : '#17151A';
-            ctx.fill();
-            ctx.lineWidth = Math.max(2,tamanho*0.055);
-            ctx.strokeStyle = aproximada ? 'rgba(255,255,255,.80)' : 'rgba(255,255,255,.32)';
-            ctx.stroke();
-            ctx.restore();
-
+            desenharIconeMoldePeca(en.x, en.y, tamanho, perfil, 'molde', cor, aproximada);
             if (aproximada) {
                 ctx.beginPath();
-                ctx.arc(en.x,en.y,tamanho*1.27,0,Math.PI*2);
-                ctx.strokeStyle='rgba(255,255,255,.75)';
+                ctx.arc(en.x, en.y, tamanho * 1.27, 0, Math.PI * 2);
+                ctx.strokeStyle='rgba(255,255,255,.82)';
                 ctx.lineWidth=Math.max(2,tamanho*.045);
                 ctx.stroke();
             }
@@ -2137,13 +2176,7 @@
             ctx.beginPath();
 
             if (tipo === 'peca_molde') {
-                construirPerfilObjeto(ctx, modelo || 'maça', tamanho);
-                if (eSilhueta) {
-                    ctx.fillStyle='rgba(255,255,255,.12)'; ctx.fill();
-                    ctx.strokeStyle='rgba(255,255,255,.60)'; ctx.lineWidth=3; ctx.stroke();
-                } else {
-                    ctx.fillStyle = cor || '#FF8A65'; ctx.shadowBlur=16; ctx.shadowColor=ctx.fillStyle; ctx.fill();
-                }
+                desenharIconeMoldePeca(x, y, tamanho, modelo || 'maça', 'peca', cor || '#FF8A65', false);
                 ctx.restore();
                 return;
             }

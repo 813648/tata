@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portal-magico-tata-v10';
+const CACHE_NAME = 'portal-magico-tata-v12';
 const APP_SHELL = ['./', './index.html', './icone.svg', './icone-192.png', './icone-512.png'];
 
 self.addEventListener('install', event => {
