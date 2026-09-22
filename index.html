@@ -515,6 +515,7 @@
         let ponteiroArrastoEncaixe = null;
         const MAX_NIVEIS_ENCAIXE = 10;
         let categoriaEncaixe = 1;
+        const VERSAO_PORTAL = 'v10';
 
         const CATEGORIAS_ENCAIXE = {
             1: { nome:'Movimentos Básicos', niveis:[
@@ -1011,29 +1012,51 @@
                 const modelos = nivel.modelos || ['maça','casa'];
                 const corretaModelo = nivel.correta || modelos[0];
                 const coresMoldes = ['#5CC8FF','#FF8A65','#FFD54F','#81C784'];
+                const tamMolde = Math.min(largura, altura) * 0.105 * (nivel.escalaDestino || 1);
+                let posicoes;
+                if (n <= 2) {
+                    posicoes = [
+                        {x:largura*0.24, y:altura*0.37},
+                        {x:largura*0.24, y:altura*0.63}
+                    ];
+                } else if (n === 3) {
+                    posicoes = [
+                        {x:largura*0.20, y:altura*0.27},
+                        {x:largura*0.20, y:altura*0.50},
+                        {x:largura*0.20, y:altura*0.73}
+                    ];
+                } else {
+                    posicoes = [
+                        {x:largura*0.17, y:altura*0.32},
+                        {x:largura*0.39, y:altura*0.32},
+                        {x:largura*0.17, y:altura*0.68},
+                        {x:largura*0.39, y:altura*0.68}
+                    ];
+                }
+
                 encaixes = modelos.slice(0,n).map((modelo,i)=>({
                     tipo:'molde',
                     modeloObjeto:modelo,
                     corDestino:coresMoldes[i % coresMoldes.length],
                     eCorreta:modelo === corretaModelo,
-                    tamanhoExtra:1
+                    tamanhoExtra:1,
+                    tamanho:tamMolde,
+                    x:posicoes[i].x,
+                    y:posicoes[i].y
                 }));
                 encaixes = encaixes.sort(() => Math.random() - 0.5);
-                pecaPaiEncaixe = {
-                    tipo:'peca_molde',
-                    modeloObjeto:corretaModelo,
-                    cor:coresMoldes[0],
-                    arrastando:false,
-                    startX:largura*0.78,
-                    startY:altura*0.52,
-                    x:largura*0.78,
-                    y:altura*0.52
-                };
-                // A cor da peça acompanha a cor do molde correto mesmo depois
-                // de os moldes serem baralhados.
-                const moldeCorreto = encaixes.find(en=>en.eCorreta);
-                if (moldeCorreto) pecaPaiEncaixe.cor = moldeCorreto.corDestino;
-                reconfigurarEncaixes();
+
+                pecaPaiEncaixe = pecaPaiEncaixe || {};
+                pecaPaiEncaixe.tipo = 'peca_molde';
+                pecaPaiEncaixe.modeloObjeto = corretaModelo;
+                pecaPaiEncaixe.arrastando = false;
+                pecaPaiEncaixe.startX = largura*0.78;
+                pecaPaiEncaixe.startY = altura*0.52;
+                pecaPaiEncaixe.x = largura*0.78;
+                pecaPaiEncaixe.y = altura*0.52;
+                pecaPaiEncaixe.tamanho = Math.min(largura, altura) * 0.12;
+                const moldeCorreto = encaixes.find(en => en.eCorreta);
+                pecaPaiEncaixe.cor = moldeCorreto ? moldeCorreto.corDestino : coresMoldes[0];
                 return;
             } else if (categoriaEncaixe === 2) {
                 const n = nivel.destinos || 1;
@@ -2063,17 +2086,30 @@
             ctx.shadowBlur = aproximada ? 26 : 14;
             ctx.shadowColor = cor;
             ctx.fillStyle = cor;
-            ctx.beginPath(); ctx.arc(en.x,en.y,tamanho*1.12,0,Math.PI*2); ctx.fill();
+            ctx.beginPath();
+            ctx.arc(en.x,en.y,tamanho*1.12,0,Math.PI*2);
+            ctx.fill();
             ctx.shadowBlur = 0;
+
+            // O recorte negro é exatamente o mesmo perfil da peça e fica
+            // centrado no interior do molde.
+            ctx.save();
+            ctx.translate(en.x, en.y);
+            ctx.beginPath();
             construirPerfilObjeto(ctx, perfil, tamanho*0.78);
             ctx.fillStyle = aproximada ? cor : '#17151A';
             ctx.fill();
             ctx.lineWidth = Math.max(2,tamanho*0.055);
             ctx.strokeStyle = aproximada ? 'rgba(255,255,255,.80)' : 'rgba(255,255,255,.32)';
             ctx.stroke();
+            ctx.restore();
+
             if (aproximada) {
-                ctx.beginPath(); ctx.arc(en.x,en.y,tamanho*1.27,0,Math.PI*2);
-                ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=Math.max(2,tamanho*.045); ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(en.x,en.y,tamanho*1.27,0,Math.PI*2);
+                ctx.strokeStyle='rgba(255,255,255,.75)';
+                ctx.lineWidth=Math.max(2,tamanho*.045);
+                ctx.stroke();
             }
             ctx.restore();
         }
@@ -2511,6 +2547,7 @@
                 ctx.restore();
             }
             desenharTituloJogo();
+            desenharVersaoPortal();
             requestAnimationFrame(loop);
         }
 
