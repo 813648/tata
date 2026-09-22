@@ -541,17 +541,17 @@
                 { nome:'Procura o par', tipo:'par4', destinos:4, escalaDestino:0.90 },
                 { nome:'Grande correspondência', tipo:'final2', destinos:4, escalaDestino:0.88 }
             ]},
-            3: { nome:'Chaves e Fechaduras', niveis:[
-                { nome:'A primeira chave', tipo:'chave1', destinos:1, escalaDestino:1.00 },
-                { nome:'Mais longe', tipo:'chave1', destinos:1, escalaDestino:1.00 },
-                { nome:'Duas fechaduras', tipo:'chaveCor2', destinos:2, escalaDestino:1.00 },
-                { nome:'Três fechaduras', tipo:'chaveCor3', destinos:3, escalaDestino:0.98 },
-                { nome:'Procura a tua cor', tipo:'chaveCor3', destinos:3, escalaDestino:0.96 },
-                { nome:'Chave grande', tipo:'chaveTam3', destinos:3, escalaDestino:0.94 },
-                { nome:'Chave + cor', tipo:'chaveMista3', destinos:3, escalaDestino:0.92 },
-                { nome:'Duas portas', tipo:'chaveMista4', destinos:4, escalaDestino:0.90 },
-                { nome:'Escolhe e arrasta', tipo:'chaveMista4', destinos:4, escalaDestino:0.90 },
-                { nome:'Grande aventura', tipo:'chaveFinal', destinos:4, escalaDestino:0.88 }
+            3: { nome:'Molde e Peça', niveis:[
+                { nome:'Duas escolhas', tipo:'molde2_maça', destinos:2, escalaDestino:0.92, modelos:['maça','casa'], correta:'maça' },
+                { nome:'Outra escolha', tipo:'molde2_garrafa', destinos:2, escalaDestino:0.92, modelos:['carro','garrafa'], correta:'garrafa' },
+                { nome:'Perfil mais rico', tipo:'molde2_aviao', destinos:2, escalaDestino:0.90, modelos:['aviao','guitarra'], correta:'aviao' },
+                { nome:'Três moldes', tipo:'molde3_carro', destinos:3, escalaDestino:0.88, modelos:['maça','casa','carro'], correta:'carro' },
+                { nome:'Três perfis', tipo:'molde3_guitarra', destinos:3, escalaDestino:0.88, modelos:['garrafa','aviao','guitarra'], correta:'guitarra' },
+                { nome:'Quatro escolhas', tipo:'molde4_casa', destinos:4, escalaDestino:0.84, modelos:['casa','carro','garrafa','maça'], correta:'casa' },
+                { nome:'Objetos mais ricos', tipo:'molde3_telefone', destinos:3, escalaDestino:0.84, modelos:['aviao','telefone','guitarra'], correta:'telefone' },
+                { nome:'Quatro perfis', tipo:'molde4_carro', destinos:4, escalaDestino:0.82, modelos:['carro','telefone','garrafa','guitarra'], correta:'carro' },
+                { nome:'Escolhe o perfil', tipo:'molde4_guitarra', destinos:4, escalaDestino:0.80, modelos:['aviao','guitarra','telefone','casa'], correta:'guitarra' },
+                { nome:'Grande aventura', tipo:'molde4_aviao', destinos:4, escalaDestino:0.78, modelos:['aviao','guitarra','telefone','carro'], correta:'aviao' }
             ]}
         };
 
@@ -1007,15 +1007,34 @@
             let destinos = [];
 
             if (categoriaEncaixe === 3) {
-                const n = nivel.destinos || 1;
-                const colunas = n <= 2 ? 2 : 2;
-                const linhas = Math.ceil(n / colunas);
-                const xBase = n <= 2 ? [0.27,0.52] : [0.18,0.42];
-                const yBase = linhas === 1 ? [0.50] : [0.28,0.72];
-                for(let i=0;i<n;i++){
-                    const col=i%colunas, lin=Math.floor(i/colunas);
-                    destinos.push({x:largura*(xBase[col] ?? 0.42), y:altura*(yBase[lin] ?? 0.50)});
-                }
+                const n = nivel.destinos || 2;
+                const modelos = nivel.modelos || ['maça','casa'];
+                const corretaModelo = nivel.correta || modelos[0];
+                const coresMoldes = ['#5CC8FF','#FF8A65','#FFD54F','#81C784'];
+                encaixes = modelos.slice(0,n).map((modelo,i)=>({
+                    tipo:'molde',
+                    modeloObjeto:modelo,
+                    corDestino:coresMoldes[i % coresMoldes.length],
+                    eCorreta:modelo === corretaModelo,
+                    tamanhoExtra:1
+                }));
+                encaixes = encaixes.sort(() => Math.random() - 0.5);
+                pecaPaiEncaixe = {
+                    tipo:'peca_molde',
+                    modeloObjeto:corretaModelo,
+                    cor:coresMoldes[0],
+                    arrastando:false,
+                    startX:largura*0.78,
+                    startY:altura*0.52,
+                    x:largura*0.78,
+                    y:altura*0.52
+                };
+                // A cor da peça acompanha a cor do molde correto mesmo depois
+                // de os moldes serem baralhados.
+                const moldeCorreto = encaixes.find(en=>en.eCorreta);
+                if (moldeCorreto) pecaPaiEncaixe.cor = moldeCorreto.corDestino;
+                reconfigurarEncaixes();
+                return;
             } else if (categoriaEncaixe === 2) {
                 const n = nivel.destinos || 1;
                 const colunas = n <= 2 ? 2 : 2;
@@ -1699,7 +1718,7 @@
             return [
                 { categoria:1, x:x1, y, w, h, texto:'Movimentos' },
                 { categoria:2, x:x1+w+gap, y, w, h, texto:'Correspondência' },
-                { categoria:3, x:x1+(w+gap)*2, y, w, h, texto:'Chaves' }
+                { categoria:3, x:x1+(w+gap)*2, y, w, h, texto:'Molde e Peça' }
             ];
         }
 
@@ -2001,10 +2020,80 @@
         /* =================================================================
            DESENHOS AUXILIARES
            ================================================================= */
+        function construirPerfilObjeto(ctx, nome, r) {
+            ctx.beginPath();
+            switch(nome) {
+                case 'maça':
+                    ctx.moveTo(-r*0.02,-r*0.72);
+                    ctx.bezierCurveTo(-r*0.22,-r*0.95,-r*0.60,-r*0.92,-r*0.78,-r*0.58);
+                    ctx.bezierCurveTo(-r*1.02,-r*0.14,-r*0.82,r*0.52,-r*0.26,r*0.78);
+                    ctx.bezierCurveTo(-r*0.03,r*0.89,r*0.20,r*0.89,r*0.38,r*0.78);
+                    ctx.bezierCurveTo(r*0.90,r*0.50,r*1.02,-r*0.16,r*0.78,-r*0.58);
+                    ctx.bezierCurveTo(r*0.60,-r*0.88,r*0.18,-r*0.93,-r*0.02,-r*0.72);
+                    ctx.closePath();
+                    break;
+                case 'casa':
+                    ctx.moveTo(-r*0.92,-r*0.10); ctx.lineTo(0,-r*0.88); ctx.lineTo(r*0.92,-r*0.10);
+                    ctx.lineTo(r*0.82,-r*0.10); ctx.lineTo(r*0.82,r*0.78); ctx.lineTo(-r*0.82,r*0.78); ctx.lineTo(-r*0.82,-r*0.10); ctx.closePath();
+                    break;
+                case 'carro':
+                    ctx.moveTo(-r*0.92,r*0.38); ctx.lineTo(-r*0.76,r*0.00); ctx.lineTo(-r*0.32,-r*0.24); ctx.lineTo(r*0.28,-r*0.24); ctx.lineTo(r*0.68,r*0.02); ctx.lineTo(r*0.92,r*0.36); ctx.lineTo(r*0.86,r*0.70); ctx.lineTo(-r*0.86,r*0.70); ctx.closePath();
+                    break;
+                case 'garrafa':
+                    ctx.moveTo(-r*0.25,-r*0.84); ctx.lineTo(r*0.25,-r*0.84); ctx.lineTo(r*0.25,-r*0.42); ctx.bezierCurveTo(r*0.26,-r*0.26,r*0.55,-r*0.12,r*0.58,r*0.16); ctx.bezierCurveTo(r*0.64,r*0.60,r*0.42,r*0.80,0,r*0.84); ctx.bezierCurveTo(-r*0.42,r*0.80,-r*0.64,r*0.60,-r*0.58,r*0.16); ctx.bezierCurveTo(-r*0.55,-r*0.12,-r*0.26,-r*0.26,-r*0.25,-r*0.42); ctx.closePath();
+                    break;
+                case 'aviao':
+                    ctx.moveTo(-r*0.86,-r*0.08); ctx.lineTo(-r*0.18,-r*0.08); ctx.lineTo(-r*0.56,-r*0.72); ctx.lineTo(-r*0.30,-r*0.72); ctx.lineTo(r*0.10,-r*0.16); ctx.lineTo(r*0.78,-r*0.36); ctx.lineTo(r*0.92,-r*0.08); ctx.lineTo(r*0.10,r*0.10); ctx.lineTo(-r*0.30,r*0.72); ctx.lineTo(-r*0.56,r*0.72); ctx.lineTo(-r*0.18,r*0.10); ctx.lineTo(-r*0.86,r*0.10); ctx.closePath();
+                    break;
+                case 'guitarra':
+                    ctx.moveTo(-r*0.08,-r*0.88); ctx.lineTo(r*0.18,-r*0.58); ctx.lineTo(r*0.12,-r*0.20); ctx.bezierCurveTo(r*0.72,-r*0.20,r*0.78,r*0.34,r*0.42,r*0.50); ctx.bezierCurveTo(r*0.10,r*0.64,r*0.10,r*0.86,0,r*0.92); ctx.bezierCurveTo(-r*0.10,r*0.86,-r*0.10,r*0.64,-r*0.42,r*0.50); ctx.bezierCurveTo(-r*0.78,r*0.34,-r*0.72,-r*0.20,-r*0.12,-r*0.20); ctx.lineTo(-r*0.18,-r*0.58); ctx.closePath();
+                    break;
+                case 'telefone':
+                    if (ctx.roundRect) ctx.roundRect(-r*0.64,-r*0.92,r*1.28,r*1.84,r*0.20); else ctx.rect(-r*0.64,-r*0.92,r*1.28,r*1.84);
+                    break;
+                default:
+                    ctx.arc(0,0,r*0.72,0,Math.PI*2);
+            }
+        }
+
+        function desenharMoldeEncaixe(en, tamanho, aproximada) {
+            const cor = en.corDestino || '#5CC8FF';
+            const perfil = en.modeloObjeto || 'maça';
+            ctx.save();
+            ctx.shadowBlur = aproximada ? 26 : 14;
+            ctx.shadowColor = cor;
+            ctx.fillStyle = cor;
+            ctx.beginPath(); ctx.arc(en.x,en.y,tamanho*1.12,0,Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+            construirPerfilObjeto(ctx, perfil, tamanho*0.78);
+            ctx.fillStyle = aproximada ? cor : '#17151A';
+            ctx.fill();
+            ctx.lineWidth = Math.max(2,tamanho*0.055);
+            ctx.strokeStyle = aproximada ? 'rgba(255,255,255,.80)' : 'rgba(255,255,255,.32)';
+            ctx.stroke();
+            if (aproximada) {
+                ctx.beginPath(); ctx.arc(en.x,en.y,tamanho*1.27,0,Math.PI*2);
+                ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=Math.max(2,tamanho*.045); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
         function desenharFormaGenerica(ctx, x, y, tamanho, tipo, cor, eSilhueta = false, modelo = 0) {
             ctx.save();
             ctx.translate(x, y);
             ctx.beginPath();
+
+            if (tipo === 'peca_molde') {
+                construirPerfilObjeto(ctx, modelo || 'maça', tamanho);
+                if (eSilhueta) {
+                    ctx.fillStyle='rgba(255,255,255,.12)'; ctx.fill();
+                    ctx.strokeStyle='rgba(255,255,255,.60)'; ctx.lineWidth=3; ctx.stroke();
+                } else {
+                    ctx.fillStyle = cor || '#FF8A65'; ctx.shadowBlur=16; ctx.shadowColor=ctx.fillStyle; ctx.fill();
+                }
+                ctx.restore();
+                return;
+            }
 
             if (tipo === 'circulo') {
                 ctx.arc(0, 0, tamanho, 0, Math.PI * 2);
@@ -2354,34 +2443,9 @@
                 encaixes.forEach(en => {
                     const tamEncaixe = en.tamanho * (en.tamanhoExtra || 1);
                     if (categoriaEncaixe === 3) {
-                        const modelo = en.modelo || 0;
-                        // A fechadura é o mesmo perfil da chave. Quando a chave
-                        // correta se aproxima, o perfil inteiro ganha a mesma cor.
                         const distancia = pecaPaiEncaixe ? Math.hypot(pecaPaiEncaixe.x - en.x, pecaPaiEncaixe.y - en.y) : Infinity;
-                        const aproximada = en.eCorreta && distancia < tamEncaixe * 2.05;
-                        const corFechadura = aproximada ? (pecaPaiEncaixe.cor || en.corDestino || '#FFFFFF') : (en.corDestino || '#FFFFFF');
-                        if (aproximada) {
-                            ctx.save();
-                            ctx.globalAlpha = 0.20;
-                            ctx.fillStyle = corFechadura;
-                            ctx.shadowBlur = 24; ctx.shadowColor = corFechadura;
-                            ctx.beginPath(); ctx.arc(en.x,en.y,tamEncaixe*1.55,0,Math.PI*2); ctx.fill();
-                            ctx.restore();
-                        }
-                        ctx.save();
-                        ctx.globalAlpha = aproximada ? 1 : 0.28;
-                        desenharFormaGenerica(ctx, en.x, en.y, tamEncaixe, 'fechadura', corFechadura, false, modelo);
-                        ctx.restore();
-                        if (!aproximada) {
-                            // Pequeno detalhe visual: continua a ser a mesma forma,
-                            // mas fica claro que aquele perfil é a fechadura.
-                            ctx.save();
-                            ctx.fillStyle='rgba(25,20,30,.55)';
-                            ctx.beginPath();
-                            ctx.arc(en.x,en.y,tamEncaixe*.10,0,Math.PI*2);
-                            ctx.fill();
-                            ctx.restore();
-                        }
+                        const aproximada = en.eCorreta && distancia < tamEncaixe * 2.0;
+                        desenharMoldeEncaixe(en, tamEncaixe, aproximada);
                     } else if (categoriaEncaixe === 2) {
 
                         ctx.save();
@@ -2406,7 +2470,7 @@
                         ctx.beginPath(); ctx.arc(pecaPaiEncaixe.x,pecaPaiEncaixe.y,pecaPaiEncaixe.tamanho*1.25* pulso,0,Math.PI*2); ctx.stroke();
                         ctx.restore();
                     }
-                    desenharFormaGenerica(ctx, pecaPaiEncaixe.x, pecaPaiEncaixe.y, pecaPaiEncaixe.tamanho, pecaPaiEncaixe.tipo, pecaPaiEncaixe.cor, false, pecaPaiEncaixe.modelo || 0);
+                    desenharFormaGenerica(ctx, pecaPaiEncaixe.x, pecaPaiEncaixe.y, pecaPaiEncaixe.tamanho, pecaPaiEncaixe.tipo, pecaPaiEncaixe.cor, false, pecaPaiEncaixe.modeloObjeto || 0);
                 }
 
                 particulasEncaixe.forEach(p => {
