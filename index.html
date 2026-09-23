@@ -307,7 +307,7 @@
         </div>
     </div>
 
-    <div id="versaoPortal">v15</div>
+    <div id="versaoPortal">v16</div>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -522,6 +522,8 @@
         };
 
         let pecaPaiEncaixe = null;
+        let pecasEncaixe = [];
+        let pecaSelecionadaEncaixe = null;
         let encaixes = [];
         let particulasEncaixe = [];
         let emTransicaoEncaixe = false;
@@ -530,58 +532,59 @@
         let tempoBrilhoEncaixe = 0;
         let movimentoEncaixeIniciado = false;
         let ponteiroArrastoEncaixe = null;
-        const MAX_NIVEIS_ENCAIXE = 10;
-        let categoriaEncaixe = 1;
-        const VERSAO_PORTAL = 'v15';
+        let pecaArrastadaEncaixe = null;
+        const MAX_NIVEIS_ENCAIXE = 30;
+        const VERSAO_PORTAL = 'v16';
 
-        const CATEGORIAS_ENCAIXE = {
-            1: { nome:'Movimentos Básicos', niveis:[
-                { nome:'Arrasta até mim', tipo:'basico', destinos:1, escalaDestino:1.00, distancia:0.47 },
-                { nome:'Mais longe', tipo:'basico', destinos:1, escalaDestino:1.00, distancia:0.64 },
-                { nome:'Cima / baixo', tipo:'vertical', destinos:1, escalaDestino:1.00, distancia:0.48 },
-                { nome:'Esquerda / direita', tipo:'horizontal', destinos:1, escalaDestino:0.98, distancia:0.66 },
-                { nome:'Diagonal', tipo:'diagonal', destinos:1, escalaDestino:0.96, distancia:0.58 },
-                { nome:'Escolhe primeiro', tipo:'selecionar', destinos:1, escalaDestino:0.98, distancia:0.58 },
-                { nome:'Escolhe o destino', tipo:'escolherDestino', destinos:2, escalaDestino:0.98, distancia:0.58 },
-                { nome:'Escolha + movimento', tipo:'selecionar2', destinos:2, escalaDestino:0.94, distancia:0.64 },
-                { nome:'Caminho maior', tipo:'longo', destinos:1, escalaDestino:0.90, distancia:0.72 },
-                { nome:'Grande aventura', tipo:'final', destinos:2, escalaDestino:0.90, distancia:0.70 }
-            ]},
-            2: { nome:'Correspondência', niveis:[
-                { nome:'Encontra a forma', tipo:'forma1', destinos:1, escalaDestino:1.00 },
-                { nome:'Escolhe a forma', tipo:'forma2', destinos:2, escalaDestino:1.00 },
-                { nome:'Procura entre três', tipo:'forma3', destinos:3, escalaDestino:0.98 },
-                { nome:'Encontra a cor', tipo:'cor2', destinos:2, escalaDestino:1.00 },
-                { nome:'Escolhe a cor', tipo:'cor3', destinos:3, escalaDestino:0.98 },
-                { nome:'Forma + cor', tipo:'mistura3', destinos:3, escalaDestino:0.96 },
-                { nome:'Outra forma, mesma cor', tipo:'formaCor3', destinos:3, escalaDestino:0.94 },
-                { nome:'Forma + cor + tamanho', tipo:'misturaTamanho3', destinos:3, escalaDestino:0.92 },
-                { nome:'Procura o par', tipo:'par4', destinos:4, escalaDestino:0.90 },
-                { nome:'Grande correspondência', tipo:'final2', destinos:4, escalaDestino:0.88 }
-            ]},
-            3: { nome:'Molde e Peça', niveis:[
-                { nome:'Duas escolhas', tipo:'molde2_icone', destinos:2, escalaDestino:0.96, modelos:['maça','sapato'], correta:'maça' },
-                { nome:'Outra escolha', tipo:'molde2_icone', destinos:2, escalaDestino:0.96, modelos:['casa','barco'], correta:'barco' },
-                { nome:'Perfis simples', tipo:'molde2_icone', destinos:2, escalaDestino:0.94, modelos:['carro','garrafa'], correta:'carro' },
-                { nome:'Três moldes', tipo:'molde3_icone', destinos:3, escalaDestino:0.92, modelos:['maça','aviao','colher'], correta:'colher' },
-                { nome:'Três perfis', tipo:'molde3_icone', destinos:3, escalaDestino:0.92, modelos:['sapato','guitarra','casa'], correta:'guitarra' },
-                { nome:'Quatro escolhas', tipo:'molde4_icone', destinos:4, escalaDestino:0.88, modelos:['telefone','bola','aviao','copo'], correta:'telefone' },
-                { nome:'Objetos diferentes', tipo:'molde4_icone', destinos:4, escalaDestino:0.86, modelos:['guitarra','colher','garrafa','casa'], correta:'garrafa' },
-                { nome:'Perfis mais ricos', tipo:'molde4_icone', destinos:4, escalaDestino:0.84, modelos:['carro','telefone','sapato','barco'], correta:'sapato' },
-                { nome:'Escolhe o perfil', tipo:'molde4_icone', destinos:4, escalaDestino:0.82, modelos:['aviao','guitarra','bola','telefone'], correta:'bola' },
-                { nome:'Grande aventura', tipo:'molde4_icone', destinos:4, escalaDestino:0.80, modelos:['casa','carro','guitarra','colher'], correta:'guitarra' }
-            ]}
-        };
+        const CORES_MOLDES_ENCAIXE = ['#5CC8FF','#FF8A65','#FFD54F','#81C784','#BA68C8','#4DD0E1'];
 
-        function niveisAtuaisEncaixe(){
-            return (CATEGORIAS_ENCAIXE[categoriaEncaixe] || CATEGORIAS_ENCAIXE[1]).niveis;
-        }
-        function categoriaAtualEncaixe(){
-            return CATEGORIAS_ENCAIXE[categoriaEncaixe] || CATEGORIAS_ENCAIXE[1];
-        }
+        /*
+           Encaixe Mágico — progressão única.
+           As antigas categorias ficam integradas numa só sequência:
+           1-5  movimento e controlo;
+           6-10 escolha simples;
+           11-20 correspondência visual progressiva;
+           21-30 dois ou mais encaixes no mesmo desafio.
+        */
+        const NIVEIS_ENCAIXE = [
+            { nome:'Mais perto', modo:'basico', posicao:'perto', pares:[{modelo:'maça',cor:'#FF6B6B'}] },
+            { nome:'Mais longe', modo:'basico', posicao:'longe', pares:[{modelo:'sapato',cor:'#64B5F6'}] },
+            { nome:'Cima / baixo', modo:'basico', posicao:'vertical', pares:[{modelo:'casa',cor:'#81C784'}] },
+            { nome:'Esquerda / direita', modo:'basico', posicao:'horizontal', pares:[{modelo:'carro',cor:'#FFD54F'}] },
+            { nome:'Diagonal', modo:'basico', posicao:'diagonal', pares:[{modelo:'garrafa',cor:'#BA68C8'}] },
+
+            { nome:'Escolhe entre dois', modo:'escolha', destinos:2, pares:[{modelo:'casa',cor:'#64B5F6'}], distratores:['barco'] },
+            { nome:'Outra escolha', modo:'escolha', destinos:2, pares:[{modelo:'carro',cor:'#FF8A65'}], distratores:['avião'] },
+            { nome:'Duas formas', modo:'escolha', destinos:2, pares:[{modelo:'colher',cor:'#81C784'}], distratores:['copo'], coresIguais:true },
+            { nome:'Escolhe entre três', modo:'escolha', destinos:3, pares:[{modelo:'guitarra',cor:'#FFD54F'}], distratores:['sapato','barco'] },
+            { nome:'Forma + cor', modo:'escolha', destinos:3, pares:[{modelo:'telefone',cor:'#5CC8FF'}], distratores:['telefone','bola'], coresDistratoras:['#FF8A65','#81C784'] },
+
+            { nome:'Três perfis', modo:'escolha', destinos:3, pares:[{modelo:'aviao',cor:'#81C784'}], distratores:['copo','maça'], coresIguais:true },
+            { nome:'Procura o perfil', modo:'escolha', destinos:3, pares:[{modelo:'guitarra',cor:'#FF8A65'}], distratores:['colher','casa'], coresIguais:true },
+            { nome:'Quatro escolhas', modo:'escolha', destinos:4, pares:[{modelo:'bola',cor:'#BA68C8'}], distratores:['carro','garrafa','sapato'] },
+            { nome:'Perfil e cor', modo:'escolha', destinos:4, pares:[{modelo:'copo',cor:'#4DD0E1'}], distratores:['copo','barco','telefone'], coresDistratoras:['#FF8A65','#FFD54F','#81C784'] },
+            { nome:'Perfis mais ricos', modo:'escolha', destinos:4, pares:[{modelo:'barco',cor:'#FFD54F'}], distratores:['aviao','guitarra','telefone'] },
+
+            { nome:'Quatro perfis', modo:'escolha', destinos:4, pares:[{modelo:'telefone',cor:'#FF8A65'}], distratores:['bola','colher','casa'] },
+            { nome:'Forma semelhante', modo:'escolha', destinos:4, pares:[{modelo:'garrafa',cor:'#81C784'}], distratores:['copo','maça','barco'], coresIguais:true },
+            { nome:'Escolha cuidadosa', modo:'escolha', destinos:4, pares:[{modelo:'sapato',cor:'#5CC8FF'}], distratores:['guitarra','aviao','carro'], coresIguais:true },
+            { nome:'Perfil escondido', modo:'escolha', destinos:4, pares:[{modelo:'colher',cor:'#BA68C8'}], distratores:['guitarra','telefone','copo'] },
+            { nome:'Grande correspondência', modo:'escolha', destinos:4, pares:[{modelo:'aviao',cor:'#FF8A65'}], distratores:['barco','casa','carro'], coresIguais:true },
+
+            { nome:'Duas peças', modo:'multi', destinos:2, pecas:[{modelo:'maça',cor:'#FF6B6B'},{modelo:'carro',cor:'#FFD54F'}] },
+            { nome:'Duas peças, três moldes', modo:'multi', destinos:3, pecas:[{modelo:'casa',cor:'#81C784'},{modelo:'barco',cor:'#5CC8FF'}], distratores:['bola'] },
+            { nome:'Duas peças, quatro moldes', modo:'multi', destinos:4, pecas:[{modelo:'guitarra',cor:'#FF8A65'},{modelo:'telefone',cor:'#BA68C8'}], distratores:['copo','sapato'] },
+            { nome:'Duas escolhas diferentes', modo:'multi', destinos:4, pecas:[{modelo:'aviao',cor:'#FFD54F'},{modelo:'colher',cor:'#4DD0E1'}], distratores:['casa','barco'], coresIguais:false },
+            { nome:'Três peças', modo:'multi', destinos:3, pecas:[{modelo:'maça',cor:'#FF6B6B'},{modelo:'sapato',cor:'#64B5F6'},{modelo:'bola',cor:'#81C784'}] },
+            { nome:'Três peças, quatro moldes', modo:'multi', destinos:4, pecas:[{modelo:'casa',cor:'#FFD54F'},{modelo:'telefone',cor:'#BA68C8'},{modelo:'copo',cor:'#5CC8FF'}], distratores:['barco'] },
+            { nome:'Três peças, cinco moldes', modo:'multi', destinos:5, pecas:[{modelo:'carro',cor:'#FF8A65'},{modelo:'guitarra',cor:'#81C784'},{modelo:'garrafa',cor:'#5CC8FF'}], distratores:['casa','bola'] },
+            { nome:'Duas peças + escolhas', modo:'multi', destinos:5, pecas:[{modelo:'aviao',cor:'#BA68C8'},{modelo:'colher',cor:'#FFD54F'}], distratores:['telefone','barco','sapato'] },
+            { nome:'Três peças + escolhas', modo:'multi', destinos:5, pecas:[{modelo:'casa',cor:'#64B5F6'},{modelo:'guitarra',cor:'#FF8A65'},{modelo:'bola',cor:'#81C784'}], distratores:['carro','copo'] },
+            { nome:'Grande aventura', modo:'multi', destinos:5, pecas:[{modelo:'telefone',cor:'#BA68C8'},{modelo:'aviao',cor:'#FFD54F'},{modelo:'maça',cor:'#FF6B6B'}], distratores:['barco','sapato'] }
+        ];
+
         function nivelAtualEncaixe(){
-            const niveis=niveisAtuaisEncaixe();
-            return niveis[nivelEncaixe-1] || niveis[0];
+            return NIVEIS_ENCAIXE[nivelEncaixe-1] || NIVEIS_ENCAIXE[0];
         }
 
         let instrumentos = [];
@@ -1016,120 +1019,104 @@
         /* =================================================================
            LÓGICA: ENCAIXE MÁGICO
            ================================================================= */
+        function construirDestinosEncaixe(n, nivel) {
+            if (n <= 1) {
+                return [{x:largura*0.25, y:altura*0.50}];
+            }
+            if (n === 2) {
+                return [
+                    {x:largura*0.20, y:altura*0.36},
+                    {x:largura*0.20, y:altura*0.64}
+                ];
+            }
+            if (n === 3) {
+                return [
+                    {x:largura*0.17, y:altura*0.28},
+                    {x:largura*0.17, y:altura*0.50},
+                    {x:largura*0.17, y:altura*0.72}
+                ];
+            }
+            if (n === 4) {
+                return [
+                    {x:largura*0.17, y:altura*0.30},
+                    {x:largura*0.36, y:altura*0.30},
+                    {x:largura*0.17, y:altura*0.70},
+                    {x:largura*0.36, y:altura*0.70}
+                ];
+            }
+            return [
+                {x:largura*0.14, y:altura*0.25},
+                {x:largura*0.33, y:altura*0.25},
+                {x:largura*0.14, y:altura*0.50},
+                {x:largura*0.33, y:altura*0.50},
+                {x:largura*0.235, y:altura*0.75}
+            ];
+        }
+
+        function posicoesPecasEncaixe(n, nivel) {
+            if (n <= 1) {
+                let x = largura*0.78, y = altura*0.50;
+                switch(nivel.posicao){
+                    case 'perto': x=largura*0.63; y=altura*0.50; break;
+                    case 'longe': x=largura*0.86; y=altura*0.50; break;
+                    case 'vertical': x=largura*0.78; y=altura*(Math.random()<0.5?0.28:0.72); break;
+                    case 'horizontal': x=largura*(Math.random()<0.5?0.62:0.86); y=altura*0.50; break;
+                    case 'diagonal': x=largura*(Math.random()<0.5?0.68:0.87); y=altura*(Math.random()<0.5?0.28:0.72); break;
+                }
+                return [{x,y}];
+            }
+            if (n === 2) return [
+                {x:largura*0.73,y:altura*0.34},
+                {x:largura*0.73,y:altura*0.66}
+            ];
+            return [
+                {x:largura*0.73,y:altura*0.28},
+                {x:largura*0.73,y:altura*0.50},
+                {x:largura*0.73,y:altura*0.72}
+            ];
+        }
+
+        function obterModelosDistratoresEncaixe(nivel, quantidade, usados) {
+            const candidatos = nivel.distratores || ['maça','sapato','casa','barco','carro','garrafa','aviao','colher','guitarra','telefone','bola','copo'];
+            const saida = [];
+            for (const modelo of candidatos) {
+                if (saida.length >= quantidade) break;
+                if (!usados.has(modelo) && !saida.includes(modelo)) saida.push(modelo);
+            }
+            const todos = ['maça','sapato','casa','barco','carro','garrafa','aviao','colher','guitarra','telefone','bola','copo'];
+            for (const modelo of todos) {
+                if (saida.length >= quantidade) break;
+                if (!usados.has(modelo) && !saida.includes(modelo)) saida.push(modelo);
+            }
+            return saida;
+        }
+
         function configurarPosicoesEncaixe() {
             const nivel = nivelAtualEncaixe();
-            const tamBase = Math.min(largura, altura) * 0.12;
-            const tam = tamBase * (nivel.escalaDestino || 1);
-            const origemX = largura * 0.78;
-            const origemY = altura * 0.52;
-            let destinos = [];
-
-            if (categoriaEncaixe === 3) {
-                const n = nivel.destinos || 2;
-                const modelos = nivel.modelos || ['maça','casa'];
-                const corretaModelo = nivel.correta || modelos[0];
-                const coresMoldes = ['#5CC8FF','#FF8A65','#FFD54F','#81C784'];
-                const tamMolde = Math.min(largura, altura) * 0.105 * (nivel.escalaDestino || 1);
-                let posicoes;
-                if (n <= 2) {
-                    posicoes = [
-                        {x:largura*0.24, y:altura*0.37},
-                        {x:largura*0.24, y:altura*0.63}
-                    ];
-                } else if (n === 3) {
-                    posicoes = [
-                        {x:largura*0.20, y:altura*0.27},
-                        {x:largura*0.20, y:altura*0.50},
-                        {x:largura*0.20, y:altura*0.73}
-                    ];
-                } else {
-                    posicoes = [
-                        {x:largura*0.17, y:altura*0.32},
-                        {x:largura*0.39, y:altura*0.32},
-                        {x:largura*0.17, y:altura*0.68},
-                        {x:largura*0.39, y:altura*0.68}
-                    ];
-                }
-
-                encaixes = modelos.slice(0,n).map((modelo,i)=>({
-                    tipo:'molde',
-                    modeloObjeto:modelo,
-                    corDestino:coresMoldes[i % coresMoldes.length],
-                    eCorreta:modelo === corretaModelo,
-                    tamanhoExtra:1,
-                    tamanho:tamMolde,
-                    x:posicoes[i].x,
-                    y:posicoes[i].y
-                }));
-                encaixes = encaixes.sort(() => Math.random() - 0.5);
-
-                pecaPaiEncaixe = pecaPaiEncaixe || {};
-                pecaPaiEncaixe.tipo = 'peca_molde';
-                pecaPaiEncaixe.modeloObjeto = corretaModelo;
-                pecaPaiEncaixe.arrastando = false;
-                pecaPaiEncaixe.startX = largura*0.78;
-                pecaPaiEncaixe.startY = altura*0.52;
-                pecaPaiEncaixe.x = largura*0.78;
-                pecaPaiEncaixe.y = altura*0.52;
-                pecaPaiEncaixe.tamanho = tamMolde * 0.76;
-                const moldeCorreto = encaixes.find(en => en.eCorreta);
-                pecaPaiEncaixe.cor = moldeCorreto ? moldeCorreto.corDestino : coresMoldes[0];
-                return;
-            } else if (categoriaEncaixe === 2) {
-                const n = nivel.destinos || 1;
-                const colunas = n <= 2 ? 2 : 2;
-                const linhas = Math.ceil(n / colunas);
-                const xBase = n <= 2 ? [0.27,0.52] : [0.20,0.43];
-                const yBase = linhas === 1 ? [0.50] : [0.29,0.71];
-                for(let i=0;i<n;i++){
-                    const col=i%colunas, lin=Math.floor(i/colunas);
-                    destinos.push({x:largura*(xBase[col] ?? 0.43), y:altura*(yBase[lin] ?? 0.50)});
-                }
-                if(n===4){
-                    destinos=[
-                        {x:largura*.18,y:altura*.27},{x:largura*.42,y:altura*.27},
-                        {x:largura*.18,y:altura*.73},{x:largura*.42,y:altura*.73}
-                    ];
-                }
-            } else if (nivel.destinos === 1) {
-                if (nivel.tipo === 'vertical') {
-                    destinos.push({x: largura*0.25, y: altura*(Math.random()<0.5?0.25:0.75)});
-                } else if (nivel.tipo === 'horizontal') {
-                    destinos.push({x: largura*(Math.random()<0.5?0.22:0.34), y: altura*(0.30+Math.random()*0.40)});
-                } else if (nivel.tipo === 'diagonal') {
-                    destinos.push({x: largura*(0.18+Math.random()*0.20), y: altura*(0.20+Math.random()*0.60)});
-                } else if (nivel.tipo === 'longo') {
-                    destinos.push({x: largura*0.14, y: altura*(0.18+Math.random()*0.64)});
-                } else {
-                    destinos.push({x: largura*0.24, y: altura*(0.28+Math.random()*0.44)});
-                }
-            } else {
-                destinos = [
-                    {x: largura*0.22, y: altura*0.30},
-                    {x: largura*0.22, y: altura*0.70}
-                ];
-                if (Math.random()<0.5) destinos.reverse();
-            }
-
+            const base = Math.min(largura, altura);
+            const tamMolde = base * (nivel.modo === 'multi' ? 0.095 : 0.105);
+            const destinos = construirDestinosEncaixe(encaixes.length, nivel);
             encaixes.forEach((en,i)=>{
                 en.x = destinos[i].x;
                 en.y = destinos[i].y;
-                en.tamanho = tam;
+                en.tamanho = tamMolde;
             });
 
-            if (pecaPaiEncaixe) {
-                pecaPaiEncaixe.tamanho = tamBase;
-                pecaPaiEncaixe.startX = origemX;
-                pecaPaiEncaixe.startY = origemY;
-                if (!pecaPaiEncaixe.arrastando && !origemSelecionadaEncaixe) {
-                    pecaPaiEncaixe.x = origemX;
-                    pecaPaiEncaixe.y = origemY;
+            const posPecas = posicoesPecasEncaixe(pecasEncaixe.length, nivel);
+            pecasEncaixe.forEach((peca,i)=>{
+                peca.tamanho = tamMolde * (pecasEncaixe.length > 1 ? 0.78 : 0.82);
+                peca.startX = posPecas[i].x;
+                peca.startY = posPecas[i].y;
+                if (!peca.arrastando && !peca.concluida && peca !== pecaSelecionadaEncaixe) {
+                    peca.x = peca.startX;
+                    peca.y = peca.startY;
                 }
-            }
+            });
+            pecaPaiEncaixe = pecaSelecionadaEncaixe || pecasEncaixe.find(p=>!p.concluida) || pecasEncaixe[0] || null;
         }
 
         function reconfigurarEncaixes() {
-            if (!pecaPaiEncaixe && !encaixes.length) return;
+            if (!pecaPaiEncaixe && !pecasEncaixe.length && !encaixes.length) return;
             configurarPosicoesEncaixe();
         }
 
@@ -1138,135 +1125,80 @@
             origemSelecionadaEncaixe = false;
             movimentoEncaixeIniciado = false;
             ponteiroArrastoEncaixe = null;
+            pecaArrastadaEncaixe = null;
+            pecaSelecionadaEncaixe = null;
             tempoBrilhoEncaixe = performance.now();
+
             const nivel = nivelAtualEncaixe();
-            const formaCerta = TIPOS_FORMAS[(nivelEncaixe - 1) % TIPOS_FORMAS.length];
-            const corCerta = CORES_ENCAIXE[(nivelEncaixe + 1) % CORES_ENCAIXE.length];
+            const todasCores = CORES_MOLDES_ENCAIXE;
+            encaixes = [];
+            pecasEncaixe = [];
 
-            if (categoriaEncaixe === 3) {
-                const outrasCores = CORES_ENCAIXE.filter(c => c !== corCerta);
-                const n = nivel.destinos || 1;
-                const modeloCerto = (nivelEncaixe - 1) % 4;
-                encaixes = [];
-                encaixes.push({ tipo:'fechadura', corDestino:corCerta, modelo:modeloCerto, eCorreta:true, tamanhoExtra:1 });
-                if (nivel.tipo === 'chaveCor2' || nivel.tipo === 'chaveCor3') {
-                    for(let i=1;i<n;i++) encaixes.push({ tipo:'fechadura', corDestino:outrasCores[(i-1)%outrasCores.length], modelo:(modeloCerto+1+i)%4, eCorreta:false, tamanhoExtra:1 });
-                } else if (nivel.tipo === 'chaveTam3') {
-                    const tamanhos=[0.76,1.24];
-                    for(let i=1;i<n;i++) encaixes.push({ tipo:'fechadura', corDestino:corCerta, modelo:(modeloCerto+1+i)%4, eCorreta:false, tamanhoExtra:tamanhos[(i-1)%tamanhos.length] });
-                } else if (nivel.tipo === 'chaveMista3' || nivel.tipo === 'chaveMista4' || nivel.tipo === 'chaveFinal') {
-                    for(let i=1;i<n;i++) encaixes.push({ tipo:'fechadura', corDestino:outrasCores[(i-1)%outrasCores.length], modelo:(modeloCerto+1+i)%4, eCorreta:false, tamanhoExtra:[0.84,1.16,0.94][(i-1)%3] });
-                }
-                encaixes = encaixes.sort(() => Math.random() - 0.5);
-                pecaPaiEncaixe = { tipo:'chave', modelo:modeloCerto, cor:corCerta, arrastando:false, startX:largura*0.78,startY:altura*0.52,x:largura*0.78,y:altura*0.52 };
-                reconfigurarEncaixes();
-                return;
-            } else if (categoriaEncaixe === 2) {
-                const outrasFormas = TIPOS_FORMAS.filter(t => t !== formaCerta);
-                const outrasCores = CORES_ENCAIXE.filter(c => c !== corCerta);
-                const n = nivel.destinos || 1;
-                encaixes = [];
+            const pares = nivel.pares || nivel.pecas || [];
+            const multi = nivel.modo === 'multi';
+            const numPecas = multi ? pares.length : 1;
+            const modelosCorretos = new Set(pares.map(p=>p.modelo));
+            const distratores = obterModelosDistratoresEncaixe(nivel, Math.max(0, (nivel.destinos || 1) - pares.length), modelosCorretos);
 
-                // O primeiro destino é sempre o par correto. Os restantes são
-                // distratores desenhados para ensinar uma única diferença de cada vez.
-                encaixes.push({
-                    tipo: formaCerta,
-                    corDestino: corCerta,
-                    eCorreta: true,
-                    tamanhoExtra: 1,
-                    silhueta: nivel.tipo === 'forma1' || nivel.tipo === 'forma2' || nivel.tipo === 'forma3'
+            pares.forEach((par, idx)=>{
+                const cor = par.cor || todasCores[idx % todasCores.length];
+                const id = 'peca-' + idx;
+                pecasEncaixe.push({
+                    id,
+                    modeloObjeto:par.modelo,
+                    cor,
+                    arrastando:false,
+                    concluida:false,
+                    x:0,y:0,startX:0,startY:0,
+                    tamanho:0
                 });
+                encaixes.push({
+                    id:'molde-' + id,
+                    tipo:'molde',
+                    modeloObjeto:par.modelo,
+                    corDestino:cor,
+                    eCorreta:true,
+                    pecaId:id,
+                    preenchido:false,
+                    tamanhoExtra:1
+                });
+            });
 
-                if (nivel.tipo === 'forma2' || nivel.tipo === 'forma3') {
-                    for(let i=1;i<n;i++) encaixes.push({
-                        tipo: outrasFormas[(i-1)%outrasFormas.length],
-                        corDestino: corCerta,
-                        eCorreta: false,
-                        tamanhoExtra: 1,
-                        silhueta: true
-                    });
-                } else if (nivel.tipo === 'cor2' || nivel.tipo === 'cor3') {
-                    for(let i=1;i<n;i++) encaixes.push({
-                        tipo: formaCerta,
-                        corDestino: outrasCores[(i-1)%outrasCores.length],
-                        eCorreta: false,
-                        tamanhoExtra: 1,
-                        silhueta: false
-                    });
-                } else if (nivel.tipo === 'mistura3') {
-                    for(let i=1;i<n;i++) encaixes.push({
-                        tipo: outrasFormas[(i-1)%outrasFormas.length],
-                        corDestino: outrasCores[(i-1)%outrasCores.length],
-                        eCorreta: false,
-                        tamanhoExtra: 1,
-                        silhueta: false
-                    });
-                } else if (nivel.tipo === 'formaCor3') {
-                    for(let i=1;i<n;i++) encaixes.push({
-                        tipo: outrasFormas[(i-1)%outrasFormas.length],
-                        corDestino: corCerta,
-                        eCorreta: false,
-                        tamanhoExtra: 1,
-                        silhueta: false
-                    });
-                } else if (nivel.tipo === 'misturaTamanho3') {
-                    const tamanhos = [1.24, 0.76];
-                    for(let i=1;i<n;i++) encaixes.push({
-                        tipo: formaCerta,
-                        corDestino: corCerta,
-                        eCorreta: false,
-                        tamanhoExtra: tamanhos[(i-1)%tamanhos.length],
-                        silhueta: false
-                    });
-                } else {
-                    // Níveis 9 e 10: quatro pares visualmente diferentes.
-                    for(let i=1;i<n;i++) encaixes.push({
-                        tipo: outrasFormas[(i-1)%outrasFormas.length],
-                        corDestino: outrasCores[(i-1)%outrasCores.length],
-                        eCorreta: false,
-                        tamanhoExtra: [0.86,1.14,0.94][(i-1)%3],
-                        silhueta: false
-                    });
-                }
-
-                // Mistura ligeiramente a posição dos destinos, mas nunca a sua função.
-                encaixes = encaixes.sort(() => Math.random() - 0.5);
-                // Mantemos exatamente um destino correto, independentemente da posição.
-            } else {
-                let formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
-                while (formaErrada === formaCerta) formaErrada = TIPOS_FORMAS[Math.floor(Math.random() * TIPOS_FORMAS.length)];
-                const corPeca = CORES_ENCAIXE[Math.floor(Math.random() * CORES_ENCAIXE.length)];
-                if (nivel.destinos === 1) {
-                    encaixes = [{ tipo:formaCerta, eCorreta:true }];
-                } else {
-                    const corretaPrimeira = Math.random() < 0.5;
-                    encaixes = [
-                        { tipo:corretaPrimeira ? formaCerta : formaErrada, eCorreta:corretaPrimeira },
-                        { tipo:corretaPrimeira ? formaErrada : formaCerta, eCorreta:!corretaPrimeira }
-                    ];
-                }
-                pecaPaiEncaixe = {
-                    tipo:formaCerta, cor:corPeca, arrastando:false,
-                    startX:largura*0.78,startY:altura*0.52,x:largura*0.78,y:altura*0.52
-                };
-                reconfigurarEncaixes();
-                return;
+            if (nivel.coresIguais) {
+                encaixes.forEach((en,i)=>{ if (i===0) en.corDestino = pares[0]?.cor || en.corDestino; else en.corDestino = pares[0]?.cor || en.corDestino; });
             }
 
-            pecaPaiEncaixe = {
-                tipo:formaCerta,
-                cor:corCerta,
-                arrastando:false,
-                startX:largura*0.78,
-                startY:altura*0.52,
-                x:largura*0.78,
-                y:altura*0.52
-            };
+            distratores.forEach((modelo, i)=>{
+                let cor = todasCores[(i + pares.length) % todasCores.length];
+                if (nivel.coresIguais && pares.length) cor = pares[0].cor;
+                if (nivel.coresDistratoras && nivel.coresDistratoras[i]) cor = nivel.coresDistratoras[i];
+                encaixes.push({
+                    id:'distrator-' + i,
+                    tipo:'molde',
+                    modeloObjeto:modelo,
+                    corDestino:cor,
+                    eCorreta:false,
+                    pecaId:null,
+                    preenchido:false,
+                    tamanhoExtra:1
+                });
+            });
+
+            // Misturamos apenas as posições; a relação correta continua associada ao ID.
+            encaixes.sort(() => Math.random() - 0.5);
+            const paresPos = posicoesPecasEncaixe(numPecas, nivel);
+            pecasEncaixe.forEach((peca,i)=>{
+                peca.x = paresPos[i].x;
+                peca.y = paresPos[i].y;
+            });
             reconfigurarEncaixes();
+            pecaPaiEncaixe = pecasEncaixe[0] || null;
         }
 
-        function selecionarOrigemEncaixe() {
-            if (!pecaPaiEncaixe || emTransicaoEncaixe) return;
+        function selecionarPecaEncaixe(peca) {
+            if (!peca || peca.concluida || emTransicaoEncaixe) return;
+            pecaSelecionadaEncaixe = peca;
+            pecaPaiEncaixe = peca;
             origemSelecionadaEncaixe = true;
             tempoBrilhoEncaixe = performance.now();
         }
@@ -1275,31 +1207,43 @@
             return encaixes.find(en => Math.hypot(x-en.x,y-en.y) < en.tamanho*1.55) || null;
         }
 
-        function concluirEncaixe(en) {
-            if (!pecaPaiEncaixe || emTransicaoEncaixe || !en || !en.eCorreta) return;
-            emTransicaoEncaixe = true;
+        function encontrarPecaNoPonto(x,y) {
+            for (let i=pecasEncaixe.length-1;i>=0;i--) {
+                const p=pecasEncaixe[i];
+                if (p.concluida) continue;
+                if (Math.hypot(x-p.x,y-p.y) < p.tamanho*1.35) return p;
+            }
+            return null;
+        }
+
+        function concluirEncaixe(en, peca) {
+            if (!peca || emTransicaoEncaixe || !en || !en.eCorreta || en.pecaId !== peca.id) return;
+            peca.arrastando = false;
+            peca.concluida = true;
+            peca.x = en.x;
+            peca.y = en.y;
+            en.preenchido = true;
+            pecaSelecionadaEncaixe = null;
+            pecaPaiEncaixe = pecasEncaixe.find(p=>!p.concluida) || null;
             origemSelecionadaEncaixe = false;
-            pecaPaiEncaixe.arrastando = false;
-            pecaPaiEncaixe.x = en.x;
-            pecaPaiEncaixe.y = en.y;
+            ponteiroArrastoEncaixe = null;
+            pecaArrastadaEncaixe = null;
             tocarSomVitoriaEncaixe();
-            for (let i=0;i<40;i++) {
+            for (let i=0;i<28;i++) {
                 particulasEncaixe.push({
                     x:en.x,y:en.y,
-                    vx:(Math.random()-0.5)*14,vy:(Math.random()-0.5)*14,
-                    raio:Math.random()*6+2,cor:pecaPaiEncaixe.cor,opacidade:1
+                    vx:(Math.random()-0.5)*12,vy:(Math.random()-0.5)*12,
+                    raio:Math.random()*5+2,cor:peca.cor,opacidade:1
                 });
             }
-            setTimeout(() => {
-                if (nivelEncaixe < MAX_NIVEIS_ENCAIXE) {
-                    nivelEncaixe++;
-                } else {
-                    // Ao terminar a categoria, fica nela. A próxima categoria
-                    // é escolhida manualmente nos botões inferiores.
-                    nivelEncaixe = 1;
-                }
-                iniciarNovaSequenciaEncaixe();
-            }, 1300);
+            const todasConcluidas = pecasEncaixe.length > 0 && pecasEncaixe.every(p=>p.concluida);
+            if (todasConcluidas) {
+                emTransicaoEncaixe = true;
+                setTimeout(() => {
+                    nivelEncaixe = nivelEncaixe < MAX_NIVEIS_ENCAIXE ? nivelEncaixe + 1 : 1;
+                    iniciarNovaSequenciaEncaixe();
+                }, 1300);
+            }
         }
 
         /* =================================================================
@@ -1747,39 +1691,6 @@
         const JOGOS_TOQUE_UNICO = new Set(['escondidas','instrumentos','aquario','baloes']);
         let ponteiroJogoUnico = null;
 
-        function botoesCategoriaEncaixe() {
-            const base = Math.min(largura, altura);
-            const gap = Math.max(7, base * 0.015);
-            const margem = Math.max(12, base * 0.025);
-            const larguraDisponivel = Math.max(120, largura - margem * 2 - gap * 2);
-            const w = Math.min(base * 1.72, larguraDisponivel / 3);
-            const h = Math.max(34, Math.min(48, base * 0.07));
-            const total = w * 3 + gap * 2;
-            const x1 = (largura - total) / 2;
-            // Os botões ficam junto ao topo, logo abaixo do título, evitando
-            // toques acidentais na zona inferior do jogo.
-            const y = Math.max(48, altura * 0.115);
-            return [
-                { categoria:1, x:x1, y, w, h, texto:'Movimentos' },
-                { categoria:2, x:x1+w+gap, y, w, h, texto:'Correspondência' },
-                { categoria:3, x:x1+(w+gap)*2, y, w, h, texto:'Molde e Peça' }
-            ];
-        }
-
-        function categoriaEncaixeNoPonto(x,y) {
-            return botoesCategoriaEncaixe().find(b => x >= b.x && x <= b.x+b.w && y >= b.y && y <= b.y+b.h) || null;
-        }
-
-        function selecionarCategoriaEncaixe(categoria) {
-            if (!CATEGORIAS_ENCAIXE[categoria]) return;
-            categoriaEncaixe = categoria;
-            nivelEncaixe = 1;
-            origemSelecionadaEncaixe = false;
-            movimentoEncaixeIniciado = false;
-            ponteiroArrastoEncaixe = null;
-            iniciarNovaSequenciaEncaixe();
-        }
-
         canvas.addEventListener('pointerdown', (e) => {
             if (!jogoAtual) return;
             if (toquesAtivos.has(e.pointerId)) return;
@@ -1862,23 +1773,32 @@
                 tocarAquario(ptX, ptY);
             } else if (jogoAtual === 'encaixe') {
                 iniciarAudio();
-                const botaoCategoria = categoriaEncaixeNoPonto(ptX, ptY);
-                if (botaoCategoria) {
-                    selecionarCategoriaEncaixe(botaoCategoria.categoria);
+                if (emTransicaoEncaixe || !pecasEncaixe.length) return;
+
+                const peca = encontrarPecaNoPonto(ptX, ptY);
+                if (peca) {
+                    selecionarPecaEncaixe(peca);
+                    movimentoEncaixeIniciado = false;
+                    peca.arrastando = true;
+                    pecaArrastadaEncaixe = peca;
+                    pecaPaiEncaixe = peca;
+                    ponteiroArrastoEncaixe = e.pointerId;
                     return;
                 }
-                if (emTransicaoEncaixe || !pecaPaiEncaixe) return;
-                const dist = Math.hypot(ptX - pecaPaiEncaixe.x, ptY - pecaPaiEncaixe.y);
-                if (dist < pecaPaiEncaixe.tamanho * 1.8) {
-                    selecionarOrigemEncaixe();
-                    movimentoEncaixeIniciado = false;
-                    pecaPaiEncaixe.arrastando = true;
-                    ponteiroArrastoEncaixe = e.pointerId;
-                } else if (origemSelecionadaEncaixe) {
-                    const destino = destinoEncaixeNoPonto(ptX,ptY);
+
+                if (pecaSelecionadaEncaixe) {
+                    const destino = destinoEncaixeNoPonto(ptX, ptY);
                     if (destino) {
-                        if (destino.eCorreta) concluirEncaixe(destino);
-                        else { origemSelecionadaEncaixe=false; pecaPaiEncaixe.x=pecaPaiEncaixe.startX; pecaPaiEncaixe.y=pecaPaiEncaixe.startY; }
+                        if (destino.eCorreta && destino.pecaId === pecaSelecionadaEncaixe.id) {
+                            concluirEncaixe(destino, pecaSelecionadaEncaixe);
+                        } else {
+                            const peca = pecaSelecionadaEncaixe;
+                            peca.x = peca.startX;
+                            peca.y = peca.startY;
+                            pecaSelecionadaEncaixe = null;
+                            pecaPaiEncaixe = pecasEncaixe.find(p=>!p.concluida) || null;
+                            origemSelecionadaEncaixe = false;
+                        }
                     }
                 }
             }
@@ -1892,39 +1812,48 @@
 
             if (jogoAtual === 'pintura' && mouseBaixoPintura) {
                 adicionarPontoPintura(ptX, ptY);
-            } else if (jogoAtual === 'encaixe' && pecaPaiEncaixe && pecaPaiEncaixe.arrastando && ponteiroArrastoEncaixe === e.pointerId) {
-                if (Math.hypot(ptX-pecaPaiEncaixe.startX, ptY-pecaPaiEncaixe.startY) > 8) movimentoEncaixeIniciado = true;
-                pecaPaiEncaixe.x = ptX;
-                pecaPaiEncaixe.y = ptY;
+            } else if (jogoAtual === 'encaixe' && pecaArrastadaEncaixe && pecaArrastadaEncaixe.arrastando && ponteiroArrastoEncaixe === e.pointerId) {
+                if (Math.hypot(ptX-pecaArrastadaEncaixe.startX, ptY-pecaArrastadaEncaixe.startY) > 8) movimentoEncaixeIniciado = true;
+                pecaArrastadaEncaixe.x = ptX;
+                pecaArrastadaEncaixe.y = ptY;
             }
         });
 
         function limparToque(e) {
-            if (jogoAtual === 'encaixe' && ponteiroArrastoEncaixe === e.pointerId) ponteiroArrastoEncaixe = null;
+            soltarEncaixe(e.pointerId);
+            if (jogoAtual === 'encaixe' && ponteiroArrastoEncaixe === e.pointerId) {
+                ponteiroArrastoEncaixe = null;
+                pecaArrastadaEncaixe = null;
+            }
             toquesAtivos.delete(e.pointerId);
             if (ponteiroJogoUnico === e.pointerId) ponteiroJogoUnico = null;
             mouseBaixoPintura = false;
-            soltarEncaixe(e.pointerId);
         }
 
         canvas.addEventListener('pointerup', limparToque);
         canvas.addEventListener('pointercancel', limparToque);
 
         function soltarEncaixe(pointerId = null) {
-            if (jogoAtual === 'encaixe' && pointerId !== null && ponteiroArrastoEncaixe !== null && pointerId !== ponteiroArrastoEncaixe) return;
-            if (jogoAtual !== 'encaixe' || !pecaPaiEncaixe || emTransicaoEncaixe) return;
-            if (!pecaPaiEncaixe.arrastando) return;
+            if (jogoAtual !== 'encaixe' || emTransicaoEncaixe) return;
+            if (pointerId !== null && ponteiroArrastoEncaixe !== null && pointerId !== ponteiroArrastoEncaixe) return;
+            const peca = pecaArrastadaEncaixe;
+            if (!peca || !peca.arrastando) return;
+
+            peca.arrastando = false;
             if (!movimentoEncaixeIniciado) {
-                pecaPaiEncaixe.arrastando = false;
+                movimentoEncaixeIniciado = false;
                 return;
             }
-            pecaPaiEncaixe.arrastando = false;
-            const destino = destinoEncaixeNoPonto(pecaPaiEncaixe.x, pecaPaiEncaixe.y);
-            if (destino && destino.eCorreta) {
-                concluirEncaixe(destino);
+
+            const destino = destinoEncaixeNoPonto(peca.x, peca.y);
+            if (destino && destino.eCorreta && destino.pecaId === peca.id) {
+                concluirEncaixe(destino, peca);
             } else {
-                pecaPaiEncaixe.x = pecaPaiEncaixe.startX;
-                pecaPaiEncaixe.y = pecaPaiEncaixe.startY;
+                peca.x = peca.startX;
+                peca.y = peca.startY;
+                pecaSelecionadaEncaixe = null;
+                pecaPaiEncaixe = pecasEncaixe.find(p=>!p.concluida) || null;
+                origemSelecionadaEncaixe = false;
             }
             movimentoEncaixeIniciado = false;
         }
@@ -2111,7 +2040,7 @@
             colher: '🥄',
             sapato: '👟',
             bola: '⚽',
-            barco: '🐬',
+            barco: '⛵',
             copo: '🥛'
         };
 
@@ -2554,39 +2483,34 @@
 
             } else if (jogoAtual === 'encaixe') {
                 const agoraEncaixe = performance.now();
-                const nivelAtual = nivelAtualEncaixe();
                 encaixes.forEach(en => {
                     const tamEncaixe = en.tamanho * (en.tamanhoExtra || 1);
-                    if (categoriaEncaixe === 3) {
-                        const distancia = pecaPaiEncaixe ? Math.hypot(pecaPaiEncaixe.x - en.x, pecaPaiEncaixe.y - en.y) : Infinity;
-                        const aproximada = en.eCorreta && distancia < tamEncaixe * 2.0;
-                        desenharMoldeEncaixe(en, tamEncaixe, aproximada);
-                    } else if (categoriaEncaixe === 2) {
-
-                        ctx.save();
-                        ctx.globalAlpha = 0.28;
-                        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.arc(en.x, en.y, tamEncaixe*1.18, 0, Math.PI*2);
-                        ctx.stroke();
-                        ctx.restore();
-                    } else {
-                        desenharFormaGenerica(ctx, en.x, en.y, tamEncaixe, en.tipo, null, true);
-                    }
+                    const alvo = pecasEncaixe.find(p => p.id === en.pecaId);
+                    const distancia = alvo ? Math.hypot(alvo.x - en.x, alvo.y - en.y) : Infinity;
+                    const aproximada = en.eCorreta && alvo && !alvo.concluida && pecaSelecionadaEncaixe === alvo && distancia < tamEncaixe * 2.0;
+                    desenharMoldeEncaixe(en, tamEncaixe, aproximada || en.preenchido);
                 });
 
-                if (pecaPaiEncaixe) {
-                    const piscaOrigem = origemSelecionadaEncaixe || (nivelAtual.tipo === 'selecionar' || nivelAtual.tipo === 'selecionar2');
-                    if (piscaOrigem) {
+                pecasEncaixe.forEach(peca => {
+                    if (peca.concluida) {
+                        // A peça fica sobre o molde concluído durante a transição.
+                        desenharIconeMoldePeca(peca.x, peca.y, peca.tamanho, peca.modeloObjeto, 'peca', peca.cor, false);
+                        return;
+                    }
+                    const selecionada = peca === pecaSelecionadaEncaixe || peca.arrastando;
+                    if (selecionada) {
                         const pulso = 1 + Math.sin((agoraEncaixe - tempoBrilhoEncaixe)*0.008)*0.10;
                         ctx.save();
-                        ctx.globalAlpha = 0.22 + (Math.sin((agoraEncaixe-tempoBrilhoEncaixe)*0.008)+1)*0.12;
-                        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 7;
-                        ctx.beginPath(); ctx.arc(pecaPaiEncaixe.x,pecaPaiEncaixe.y,pecaPaiEncaixe.tamanho*1.25* pulso,0,Math.PI*2); ctx.stroke();
+                        ctx.globalAlpha = 0.20 + (Math.sin((agoraEncaixe-tempoBrilhoEncaixe)*0.008)+1)*0.10;
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 6;
+                        ctx.beginPath();
+                        ctx.arc(peca.x, peca.y, peca.tamanho*0.92*pulso, 0, Math.PI*2);
+                        ctx.stroke();
                         ctx.restore();
                     }
-                    desenharFormaGenerica(ctx, pecaPaiEncaixe.x, pecaPaiEncaixe.y, pecaPaiEncaixe.tamanho, pecaPaiEncaixe.tipo, pecaPaiEncaixe.cor, false, pecaPaiEncaixe.modeloObjeto || 0);
-                }
+                    desenharIconeMoldePeca(peca.x, peca.y, peca.tamanho, peca.modeloObjeto, 'peca', peca.cor, false);
+                });
 
                 particulasEncaixe.forEach(p => {
                     p.x += p.vx; p.y += p.vy; p.opacidade -= 0.02;
@@ -2600,29 +2524,11 @@
             }
 
             if (jogoAtual === 'encaixe') {
-                // Seletor de categorias, inspirado nos botões do Piano Mágico.
-                const botoes = botoesCategoriaEncaixe();
-                botoes.forEach(b => {
-                    const ativo = b.categoria === categoriaEncaixe;
-                    ctx.save();
-                    ctx.fillStyle = ativo ? '#FFE082' : 'rgba(255,255,255,.88)';
-                    ctx.strokeStyle = ativo ? '#FF8F00' : 'rgba(92,67,54,.55)';
-                    ctx.lineWidth = ativo ? 3 : 1.5;
-                    ctx.beginPath();
-                    ctx.roundRect(b.x,b.y,b.w,b.h,b.h*.28);
-                    ctx.fill(); ctx.stroke();
-                    ctx.fillStyle = ativo ? '#6D3B00' : '#4E4038';
-                    ctx.font = 'bold ' + Math.max(13, Math.min(19, Math.min(largura,altura)*0.027)) + 'px sans-serif';
-                    ctx.textAlign='center'; ctx.textBaseline='middle';
-                    ctx.fillText(b.texto,b.x+b.w/2,b.y+b.h/2);
-                    ctx.restore();
-                });
-
                 ctx.save();
                 ctx.font = 'bold ' + Math.max(16, Math.min(24, Math.min(largura,altura)*0.035)) + 'px sans-serif';
                 ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.fillStyle='rgba(255,255,255,0.82)';
-                ctx.fillText(categoriaAtualEncaixe().nome + '  •  Nível ' + nivelEncaixe + ' / ' + MAX_NIVEIS_ENCAIXE, largura*0.5, altura*0.10);
+                ctx.fillStyle='rgba(255,255,255,0.86)';
+                ctx.fillText('Encaixe Mágico  •  Nível ' + nivelEncaixe + ' / ' + MAX_NIVEIS_ENCAIXE, largura*0.5, altura*0.10);
                 ctx.restore();
             }
             desenharTituloJogo();
