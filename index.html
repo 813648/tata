@@ -445,6 +445,28 @@
             });
         }
 
+        const FRASES_VITORIA_ENCAIXE = ['Conseguiste!', 'Muito bem!', 'Perfeito!', 'Excelente!', 'Fantástico!', 'Boa!'];
+        let ultimaFraseVitoriaEncaixe = -1;
+
+        function falarVitoriaEncaixe() {
+            if (!('speechSynthesis' in window)) return;
+            if (speechSynthesis.speaking) speechSynthesis.cancel();
+            let indice = Math.floor(Math.random() * FRASES_VITORIA_ENCAIXE.length);
+            if (FRASES_VITORIA_ENCAIXE.length > 1 && indice === ultimaFraseVitoriaEncaixe) {
+                indice = (indice + 1 + Math.floor(Math.random() * (FRASES_VITORIA_ENCAIXE.length - 1))) % FRASES_VITORIA_ENCAIXE.length;
+            }
+            ultimaFraseVitoriaEncaixe = indice;
+            const fala = new SpeechSynthesisUtterance(FRASES_VITORIA_ENCAIXE[indice]);
+            fala.lang = 'pt-PT';
+            fala.rate = 0.96;
+            fala.pitch = 1.08;
+            fala.volume = 0.82;
+            const vozes = speechSynthesis.getVoices();
+            const vozPT = vozes.find(v => /^pt-PT$/i.test(v.lang)) || vozes.find(v => /^pt/i.test(v.lang));
+            if (vozPT) fala.voice = vozPT;
+            setTimeout(() => { try { speechSynthesis.speak(fala); } catch (_) {} }, 250);
+        }
+
         // Sons locais: prefere MP3 e, se não existir, usa OGG.
         // Assim podes substituir um som apenas copiando, por exemplo,
         // audio/gato.mp3 sem alterar o JavaScript.
@@ -534,7 +556,7 @@
         let ponteiroArrastoEncaixe = null;
         let pecaArrastadaEncaixe = null;
         const MAX_NIVEIS_ENCAIXE = 30;
-        const VERSAO_PORTAL = 'v16';
+        const VERSAO_PORTAL = 'v17';
 
         const CORES_MOLDES_ENCAIXE = ['#5CC8FF','#FF8A65','#FFD54F','#81C784','#BA68C8','#4DD0E1'];
 
@@ -1094,7 +1116,8 @@
         function configurarPosicoesEncaixe() {
             const nivel = nivelAtualEncaixe();
             const base = Math.min(largura, altura);
-            const tamMolde = base * (nivel.modo === 'multi' ? 0.095 : 0.105);
+            const fatorEspacamentoMoldes = encaixes.length >= 3 ? 0.86 : 1;
+            const tamMolde = base * (nivel.modo === 'multi' ? 0.095 : 0.105) * fatorEspacamentoMoldes;
             const destinos = construirDestinosEncaixe(encaixes.length, nivel);
             encaixes.forEach((en,i)=>{
                 en.x = destinos[i].x;
@@ -1239,10 +1262,11 @@
             const todasConcluidas = pecasEncaixe.length > 0 && pecasEncaixe.every(p=>p.concluida);
             if (todasConcluidas) {
                 emTransicaoEncaixe = true;
+                falarVitoriaEncaixe();
                 setTimeout(() => {
                     nivelEncaixe = nivelEncaixe < MAX_NIVEIS_ENCAIXE ? nivelEncaixe + 1 : 1;
                     iniciarNovaSequenciaEncaixe();
-                }, 1300);
+                }, 1600);
             }
         }
 
