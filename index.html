@@ -427,44 +427,40 @@
             });
         }
 
+        // Pequenos efeitos musicais de sucesso, variados para evitar a sensação de repetição.
+        const EFEITOS_VITORIA_ENCAIXE = [
+            { notas:[329.63,392.00,523.25,659.25], tempos:[0,0.09,0.18,0.30], onda:'triangle', duracao:0.48 },
+            { notas:[523.25,659.25,783.99], tempos:[0,0.13,0.26], onda:'sine', duracao:0.62 },
+            { notas:[392.00,523.25,659.25,523.25,783.99], tempos:[0,0.08,0.16,0.27,0.40], onda:'triangle', duracao:0.44 },
+            { notas:[659.25,783.99,659.25,1046.50], tempos:[0,0.10,0.22,0.34], onda:'sine', duracao:0.56 },
+            { notas:[261.63,392.00,523.25,392.00,659.25], tempos:[0,0.10,0.20,0.31,0.43], onda:'triangle', duracao:0.50 },
+            { notas:[523.25,440.00,523.25,659.25,783.99], tempos:[0,0.10,0.19,0.30,0.42], onda:'sine', duracao:0.52 }
+        ];
+        let ultimoEfeitoVitoriaEncaixe = -1;
+
         function tocarSomVitoriaEncaixe() {
             if (!audioCtx) return;
-            const notasFesta = [329.63, 392.00, 523.25, 659.25];
+            let indice = Math.floor(Math.random() * EFEITOS_VITORIA_ENCAIXE.length);
+            if (EFEITOS_VITORIA_ENCAIXE.length > 1 && indice === ultimoEfeitoVitoriaEncaixe) {
+                indice = (indice + 1 + Math.floor(Math.random() * (EFEITOS_VITORIA_ENCAIXE.length - 1))) % EFEITOS_VITORIA_ENCAIXE.length;
+            }
+            ultimoEfeitoVitoriaEncaixe = indice;
+            const efeito = EFEITOS_VITORIA_ENCAIXE[indice];
             const agora = audioCtx.currentTime + 0.02;
-            notasFesta.forEach((freq, index) => {
+            efeito.notas.forEach((freq, i) => {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.value = freq;
-                const inicio = agora + (index * 0.12);
-                gain.gain.setValueAtTime(0, inicio);
-                gain.gain.linearRampToValueAtTime(0.2, inicio + 0.05);
-                gain.gain.exponentialRampToValueAtTime(0.001, inicio + 0.8);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(inicio); osc.stop(inicio + 0.8);
+                const inicio = agora + efeito.tempos[i];
+                osc.type = efeito.onda;
+                osc.frequency.setValueAtTime(freq, inicio);
+                gain.gain.setValueAtTime(0.0001, inicio);
+                gain.gain.linearRampToValueAtTime(0.18, inicio + 0.025);
+                gain.gain.exponentialRampToValueAtTime(0.001, inicio + efeito.duracao);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(inicio);
+                osc.stop(inicio + efeito.duracao + 0.03);
             });
-        }
-
-        const FRASES_VITORIA_ENCAIXE = ['Conseguiste!', 'Muito bem!', 'Perfeito!', 'Excelente!', 'Fantástico!', 'Boa!'];
-        let ultimaFraseVitoriaEncaixe = -1;
-
-        function falarVitoriaEncaixe() {
-            if (!('speechSynthesis' in window)) return;
-            if (speechSynthesis.speaking) speechSynthesis.cancel();
-            let indice = Math.floor(Math.random() * FRASES_VITORIA_ENCAIXE.length);
-            if (FRASES_VITORIA_ENCAIXE.length > 1 && indice === ultimaFraseVitoriaEncaixe) {
-                indice = (indice + 1 + Math.floor(Math.random() * (FRASES_VITORIA_ENCAIXE.length - 1))) % FRASES_VITORIA_ENCAIXE.length;
-            }
-            ultimaFraseVitoriaEncaixe = indice;
-            const fala = new SpeechSynthesisUtterance(FRASES_VITORIA_ENCAIXE[indice]);
-            fala.lang = 'pt-PT';
-            fala.rate = 0.96;
-            fala.pitch = 1.08;
-            fala.volume = 0.82;
-            const vozes = speechSynthesis.getVoices();
-            const vozPT = vozes.find(v => /^pt-PT$/i.test(v.lang)) || vozes.find(v => /^pt/i.test(v.lang));
-            if (vozPT) fala.voice = vozPT;
-            setTimeout(() => { try { speechSynthesis.speak(fala); } catch (_) {} }, 250);
         }
 
         // Sons locais: prefere MP3 e, se não existir, usa OGG.
@@ -556,7 +552,7 @@
         let ponteiroArrastoEncaixe = null;
         let pecaArrastadaEncaixe = null;
         const MAX_NIVEIS_ENCAIXE = 30;
-        const VERSAO_PORTAL = 'v17';
+        const VERSAO_PORTAL = 'v18';
 
         const CORES_MOLDES_ENCAIXE = ['#5CC8FF','#FF8A65','#FFD54F','#81C784','#BA68C8','#4DD0E1'];
 
@@ -1053,9 +1049,9 @@
             }
             if (n === 3) {
                 return [
-                    {x:largura*0.17, y:altura*0.28},
+                    {x:largura*0.17, y:altura*0.23},
                     {x:largura*0.17, y:altura*0.50},
-                    {x:largura*0.17, y:altura*0.72}
+                    {x:largura*0.17, y:altura*0.77}
                 ];
             }
             if (n === 4) {
@@ -1116,7 +1112,7 @@
         function configurarPosicoesEncaixe() {
             const nivel = nivelAtualEncaixe();
             const base = Math.min(largura, altura);
-            const fatorEspacamentoMoldes = encaixes.length >= 3 ? 0.86 : 1;
+            const fatorEspacamentoMoldes = 1;
             const tamMolde = base * (nivel.modo === 'multi' ? 0.095 : 0.105) * fatorEspacamentoMoldes;
             const destinos = construirDestinosEncaixe(encaixes.length, nivel);
             encaixes.forEach((en,i)=>{
@@ -1262,7 +1258,6 @@
             const todasConcluidas = pecasEncaixe.length > 0 && pecasEncaixe.every(p=>p.concluida);
             if (todasConcluidas) {
                 emTransicaoEncaixe = true;
-                falarVitoriaEncaixe();
                 setTimeout(() => {
                     nivelEncaixe = nivelEncaixe < MAX_NIVEIS_ENCAIXE ? nivelEncaixe + 1 : 1;
                     iniciarNovaSequenciaEncaixe();
