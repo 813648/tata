@@ -307,7 +307,7 @@
         </div>
     </div>
 
-    <div id="versaoPortal">v16</div>
+    <div id="versaoPortal"></div>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -552,7 +552,9 @@
         let ponteiroArrastoEncaixe = null;
         let pecaArrastadaEncaixe = null;
         const MAX_NIVEIS_ENCAIXE = 30;
-        const VERSAO_PORTAL = 'v18';
+        const VERSAO_PORTAL = 'v19';
+        const elVersaoPortal = document.getElementById('versaoPortal');
+        if (elVersaoPortal) elVersaoPortal.textContent = VERSAO_PORTAL;
 
         const CORES_MOLDES_ENCAIXE = ['#5CC8FF','#FF8A65','#FFD54F','#81C784','#BA68C8','#4DD0E1'];
 
