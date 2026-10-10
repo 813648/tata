@@ -272,35 +272,35 @@
         </div>
 
         <div class="grid-apps">
-            <div class="card-app toque" onclick="abrirJogo('toque')">
+            <div class="card-app toque" data-jogo="toque" onclick="abrirJogo('toque')">
                 <div class="icon">✨</div>
                 <div class="nome">Toque Mágico</div>
             </div>
-            <div class="card-app pintura" onclick="abrirJogo('pintura')">
+            <div class="card-app pintura" data-jogo="pintura" onclick="abrirJogo('pintura')">
                 <div class="icon">🎨</div>
                 <div class="nome">Pintura Mágica</div>
             </div>
-            <div class="card-app baloes" onclick="abrirJogo('baloes')">
+            <div class="card-app baloes" data-jogo="baloes" onclick="abrirJogo('baloes')">
                 <div class="icon">🎈</div>
                 <div class="nome">Balões Mágicos</div>
             </div>
-            <div class="card-app escondidas" onclick="abrirJogo('escondidas')">
+            <div class="card-app escondidas" data-jogo="escondidas" onclick="abrirJogo('escondidas')">
                 <div class="icon">🙈</div>
                 <div class="nome">Escondidas Mágicas</div>
             </div>
-            <div class="card-app encaixe" onclick="abrirJogo('encaixe')">
+            <div class="card-app encaixe" data-jogo="encaixe" onclick="abrirJogo('encaixe')">
                 <div class="icon">🧩</div>
                 <div class="nome">Encaixe Mágico</div>
             </div>
-            <div class="card-app instrumentos" onclick="abrirJogo('instrumentos')">
+            <div class="card-app instrumentos" data-jogo="instrumentos" onclick="abrirJogo('instrumentos')">
                 <div class="icon">🎵</div>
                 <div class="nome">Sons Mágicos</div>
             </div>
-            <div class="card-app aquario" onclick="abrirJogo('aquario')">
+            <div class="card-app aquario" data-jogo="aquario" onclick="abrirJogo('aquario')">
                 <div class="icon">🐠</div>
                 <div class="nome">Aquário Mágico</div>
             </div>
-            <div class="card-app piano" onclick="abrirJogo('piano')">
+            <div class="card-app piano" data-jogo="piano" onclick="abrirJogo('piano')">
                 <div class="icon">🎹</div>
                 <div class="nome">Piano Mágico</div>
             </div>
@@ -353,6 +353,7 @@
 
         function abrirJogo(nomeJogo) {
             ponteiroJogoUnico = null;
+            if (typeof arrastosMenu !== 'undefined') arrastosMenu.clear();
             iniciarAudio();
             jogoAtual = nomeJogo;
             portalHome.style.display = 'none';
@@ -505,6 +506,7 @@
            ================================================================= */
         let formasToque = [];
         let particulasToque = [];
+        const MAX_FORMAS_TOQUE = 10;
         const CORES_TOQUE = ['#FF5733', '#FFC300', '#DAF7A6', '#33FFBD', '#3380FF', '#9D33FF', '#FF33A8'];
 
         let rastoPintura = [];
@@ -551,8 +553,10 @@
         let movimentoEncaixeIniciado = false;
         let ponteiroArrastoEncaixe = null;
         let pecaArrastadaEncaixe = null;
+        let offsetArrastoEncaixeX = 0, offsetArrastoEncaixeY = 0;
+        let referenciaArrastoEncaixeX = 0, referenciaArrastoEncaixeY = 0;
         const MAX_NIVEIS_ENCAIXE = 30;
-        const VERSAO_PORTAL = 'v19';
+        const VERSAO_PORTAL = 'v21';
         const elVersaoPortal = document.getElementById('versaoPortal');
         if (elVersaoPortal) elVersaoPortal.textContent = VERSAO_PORTAL;
 
@@ -1304,6 +1308,36 @@
 
         function pontoNaTeclaPiano(x,y,t){ return x>=t.x && x<=t.x+t.w && y>=t.y && y<=t.y+t.h; }
 
+        // Identifica botões e teclas para permitir tocar ao deslizar o dedo.
+        // Cada alvo só dispara uma vez por entrada; não repete a nota em cada frame.
+        function alvoPianoNoPonto(x, y) {
+            for (const b of botoesInstrumentoPiano) {
+                if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+                    return { id: `instrumento:${b.nome}`, ativar: () => tocarInstrumentoPiano(b.nome) };
+                }
+            }
+            let escolhida = null;
+            // As teclas pretas são verificadas primeiro porque ficam por cima das brancas.
+            for (const t of teclasPiano.filter(t => !t.branca)) {
+                if (pontoNaTeclaPiano(x, y, t)) { escolhida = t; break; }
+            }
+            if (!escolhida) {
+                for (const t of teclasPiano.filter(t => t.branca)) {
+                    if (pontoNaTeclaPiano(x, y, t)) { escolhida = t; break; }
+                }
+            }
+            return escolhida ? { id: `tecla:${escolhida.nome}`, ativar: () => ativarTeclaPiano(escolhida) } : null;
+        }
+
+        function processarAlvoPiano(x, y, pointerId) {
+            const alvo = alvoPianoNoPonto(x, y);
+            const novoId = alvo ? alvo.id : null;
+            if (!alvoArrastoPorPonteiro.has(pointerId) || alvoArrastoPorPonteiro.get(pointerId) !== novoId) {
+                alvoArrastoPorPonteiro.set(pointerId, novoId);
+                if (alvo) alvo.ativar();
+            }
+        }
+
         function tocarNotaPiano(nota){
             iniciarAudio();
             const agora=audioCtx.currentTime+0.005;
@@ -1406,6 +1440,7 @@
         let particulasSonsMagicos = [];
         let audiosSonsMagicos = [];
         let ultimoSomMagico = -1;
+        let ultimoArranjoPosicoesSons = '';
 
         function reconfigurarInstrumentos() {
             const portrait = altura > largura;
@@ -1418,16 +1453,33 @@
             const rows = portrait ? 4 : 2;
             const celW = (largura - marg * 2 - gap * (cols - 1)) / cols;
             const celH = (baseLivre - gap * (rows - 1)) / rows;
-            sonsMagicos = SONS_MAGICOS.map((_, i) => {
-                const col = i % cols;
-                const row = Math.floor(i / cols);
-                return {
-                    x: marg + col * (celW + gap) + celW / 2,
-                    y: topo + row * (celH + gap) + celH / 2,
-                    w: celW, h: celH,
-                    pulso: 0, brilho: 0, rotacao: 0
-                };
-            });
+            // Criamos uma grelha regular e baralhamos as posições atribuídas às imagens.
+            // Assim os animais mudam de lugar sem se sobreporem nem saírem do ecrã.
+            const posicoes = [];
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    posicoes.push({
+                        x: marg + col * (celW + gap) + celW / 2,
+                        y: topo + row * (celH + gap) + celH / 2,
+                        w: celW, h: celH
+                    });
+                }
+            }
+            const ordem = posicoes.map((_, i) => i);
+            for (let i = ordem.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [ordem[i], ordem[j]] = [ordem[j], ordem[i]];
+            }
+            let assinatura = ordem.join(',');
+            if (assinatura === ultimoArranjoPosicoesSons && ordem.length > 1) {
+                [ordem[0], ordem[1]] = [ordem[1], ordem[0]];
+                assinatura = ordem.join(',');
+            }
+            ultimoArranjoPosicoesSons = assinatura;
+            sonsMagicos = SONS_MAGICOS.map((_, i) => ({
+                ...posicoes[ordem[i]],
+                pulso: 0, brilho: 0, rotacao: 0
+            }));
             audiosSonsMagicos = SONS_MAGICOS.map(item => {
                 const a = new Audio();
                 a.preload = 'auto'; a.src = item.audio;
@@ -1438,6 +1490,22 @@
 
         function pontoNoSomMagico(x, y, item) {
             return Math.abs(x-item.x) <= item.w*0.47 && Math.abs(y-item.y) <= item.h*0.45;
+        }
+
+        function indiceSomMagicoNoPonto(x, y) {
+            for (let i = sonsMagicos.length - 1; i >= 0; i--) {
+                if (pontoNoSomMagico(x, y, sonsMagicos[i])) return i;
+            }
+            return -1;
+        }
+
+        function processarAlvoSomMagico(x, y, pointerId) {
+            const indice = indiceSomMagicoNoPonto(x, y);
+            const novoId = indice >= 0 ? `som:${indice}` : null;
+            if (!alvoArrastoPorPonteiro.has(pointerId) || alvoArrastoPorPonteiro.get(pointerId) !== novoId) {
+                alvoArrastoPorPonteiro.set(pointerId, novoId);
+                if (indice >= 0) ativarSomMagico(indice);
+            }
         }
 
         function tocarAudioSomMagico(i) {
@@ -1705,12 +1773,124 @@
            GESTOR DE EVENTOS COM MULTITOUCH SEGURO (PointerEvents)
            ================================================================= */
         const toquesAtivos = new Set();
+        // Último alvo sob cada dedo, para suportar interação contínua sem repetir sons no mesmo alvo.
+        const alvoArrastoPorPonteiro = new Map();
         let mouseBaixoPintura = false;
         // Alguns jogos infantis usam apenas um toque por vez: um segundo dedo
         // (por exemplo, a outra mão da Tatá pousada no ecrã) é ignorado até
         // o primeiro toque terminar. Os restantes jogos mantêm multitouch.
         const JOGOS_TOQUE_UNICO = new Set(['escondidas','instrumentos','aquario','baloes']);
         let ponteiroJogoUnico = null;
+
+        // No ecrã inicial, um gesto que começa no espaço vazio e desliza para
+        // um cartão abre esse jogo. Um toque que começa num cartão continua a
+        // usar o clique habitual, evitando ativações duplicadas.
+        const arrastosMenu = new Map();
+        document.addEventListener('pointerdown', (e) => {
+            if (jogoAtual || !portalHome.contains(e.target)) return;
+            const cartaoInicial = e.target.closest ? e.target.closest('.card-app') : null;
+            arrastosMenu.set(e.pointerId, {
+                x: e.clientX, y: e.clientY,
+                iniciouEmCartao: !!cartaoInicial
+            });
+        }, true);
+        document.addEventListener('pointermove', (e) => {
+            const inicio = arrastosMenu.get(e.pointerId);
+            if (!inicio || jogoAtual || inicio.iniciouEmCartao) return;
+            if (Math.hypot(e.clientX - inicio.x, e.clientY - inicio.y) < 6) return;
+            const sobDedo = document.elementFromPoint(e.clientX, e.clientY);
+            const cartao = sobDedo && sobDedo.closest ? sobDedo.closest('.card-app[data-jogo]') : null;
+            if (cartao) {
+                arrastosMenu.delete(e.pointerId);
+                abrirJogo(cartao.dataset.jogo);
+            }
+        }, true);
+        document.addEventListener('pointerup', e => arrastosMenu.delete(e.pointerId), true);
+        document.addEventListener('pointercancel', e => arrastosMenu.delete(e.pointerId), true);
+
+        function rebentarBalaoNoPonto(x, y) {
+            let escolhido = null;
+            let melhor = Infinity;
+            for (const b of baloes) {
+                if (b.morto) continue;
+                const dx = x - b.currentX;
+                const dy = y - b.y;
+                const distancia = (dx * dx) / (b.rx * b.rx) + (dy * dy) / (b.ry * b.ry);
+                if (distancia <= 1.2 && distancia < melhor) {
+                    escolhido = b;
+                    melhor = distancia;
+                }
+            }
+            if (!escolhido) return false;
+            const b = escolhido;
+            if (b.especial) {
+                tocarSomMagico();
+                const coresEsp = [b.corInfo.luz, '#FFD700', '#FFF', '#00E5FF', '#FF007F'];
+                for (let j = 0; j < 50; j++) {
+                    const c = coresEsp[Math.floor(Math.random() * coresEsp.length)];
+                    particulasBaloes.push(new ParticulaBalao(b.currentX, b.y, c, true));
+                }
+                sorpresasBaloes.push(new SurpresaFlutuante(b.currentX, b.y));
+            } else {
+                tocarSomPop();
+                for (let j = 0; j < 30; j++) {
+                    particulasBaloes.push(new ParticulaBalao(b.currentX, b.y, b.corInfo.base));
+                }
+            }
+            b.morto = true;
+            return true;
+        }
+
+        function indicePortaEscondidaNoPonto(x, y) {
+            const r = getRaioPortaEscondida();
+            for (let i = 0; i < portasEscondidas.length; i++) {
+                const porta = portasEscondidas[i];
+                if (Math.hypot(x - porta.x, y - (porta.y + r * 0.25)) < r * 1.45) return i;
+            }
+            return -1;
+        }
+
+        function processarPortaEscondidaPorArrasto(x, y, pointerId) {
+            const indice = indicePortaEscondidaNoPonto(x, y);
+            const id = indice >= 0 ? `porta:${indice}` : null;
+            if (!alvoArrastoPorPonteiro.has(pointerId) || alvoArrastoPorPonteiro.get(pointerId) !== id) {
+                alvoArrastoPorPonteiro.set(pointerId, id);
+                if (indice >= 0) abrirPortaEscondida(portasEscondidas[indice]);
+            }
+        }
+
+        function alvoAquarioNoPonto(x, y) {
+            let melhor = Infinity, escolhido = null;
+            peixesAquario.forEach((p, i) => {
+                const d = Math.hypot(x - p.x, y - p.y);
+                if (d < p.r * 2.15 && d < melhor) { melhor = d; escolhido = { id: `peixe:${i}` }; }
+            });
+            if (escolhido) return escolhido;
+            melhor = Infinity;
+            plantasAquario.forEach((p, i) => {
+                const d = Math.hypot(x - p.x * largura, y - p.y * altura);
+                if (d < baseAquario() * 0.13 && d < melhor) { melhor = d; escolhido = { id: `planta:${i}` }; }
+            });
+            if (escolhido) return escolhido;
+            for (let i = 0; i < criaturasAquario.length; i++) {
+                const c = criaturasAquario[i];
+                if (!c.ativa) continue;
+                if (Math.hypot(x - c.x, y - c.y) < c.r * 1.35) return { id: `criatura:${i}` };
+            }
+            return null;
+        }
+
+        function processarAlvoAquarioPorArrasto(x, y, pointerId, toqueInicial = false) {
+            const alvo = alvoAquarioNoPonto(x, y);
+            const id = alvo ? alvo.id : null;
+            if (!alvoArrastoPorPonteiro.has(pointerId) || alvoArrastoPorPonteiro.get(pointerId) !== id) {
+                alvoArrastoPorPonteiro.set(pointerId, id);
+                if (alvo) tocarAquario(x, y);
+                else if (toqueInicial) tocarAquario(x, y); // Mantém as bolhas ao tocar água livre.
+            } else if (toqueInicial && !alvo) {
+                tocarAquario(x, y);
+            }
+        }
 
         canvas.addEventListener('pointerdown', (e) => {
             if (!jogoAtual) return;
@@ -1727,6 +1907,8 @@
 
             if (jogoAtual === 'toque') {
                 iniciarAudio();
+                // Mantém no máximo 10 formas visíveis em simultâneo; remove a mais antiga.
+                if (formasToque.length >= MAX_FORMAS_TOQUE) formasToque.shift();
                 formasToque.push(new FormaMagica(ptX, ptY));
                 tocarNotaMusical();
                 const corP = CORES_TOQUE[Math.floor(Math.random() * CORES_TOQUE.length)];
@@ -1739,59 +1921,16 @@
                 adicionarPontoPintura(ptX, ptY);
             } else if (jogoAtual === 'baloes') {
                 iniciarAudio();
-                // Ciclo para garantir que cada dedo rebenta no máximo um balão
-                for (let i = 0; i < baloes.length; i++) {
-                    const b = baloes[i];
-                    if (!b.morto) {
-                        const dx = ptX - b.currentX;
-                        const dy = ptY - b.y;
-                        if ((dx * dx) / (b.rx * b.rx) + (dy * dy) / (b.ry * b.ry) <= 1.2) {
-                            if (b.especial) {
-                                tocarSomMagico();
-                                const coresEsp = [b.corInfo.luz, '#FFD700', '#FFF', '#00E5FF', '#FF007F'];
-                                for (let j = 0; j < 50; j++) {
-                                    const c = coresEsp[Math.floor(Math.random() * coresEsp.length)];
-                                    particulasBaloes.push(new ParticulaBalao(b.currentX, b.y, c, true));
-                                }
-                                sorpresasBaloes.push(new SurpresaFlutuante(b.currentX, b.y));
-                            } else {
-                                tocarSomPop();
-                                for (let j = 0; j < 30; j++) {
-                                    particulasBaloes.push(new ParticulaBalao(b.currentX, b.y, b.corInfo.base));
-                                }
-                            }
-                            b.morto = true;
-                            break; // Para imediatamente para este dedo não rebentar mais nenhum
-                        }
-                    }
-                }
+                rebentarBalaoNoPonto(ptX, ptY);
             } else if (jogoAtual === 'escondidas') {
-                const r = getRaioPortaEscondida();
-                for (const porta of portasEscondidas) {
-                    if (Math.hypot(ptX-porta.x, ptY-(porta.y+r*0.25)) < r*1.45) {
-                        abrirPortaEscondida(porta);
-                        break;
-                    }
-                }
+                processarPortaEscondidaPorArrasto(ptX, ptY, e.pointerId);
             } else if (jogoAtual === 'piano') {
                 iniciarAudio();
-                for(const b of botoesInstrumentoPiano){
-                    if(pontoNaTeclaPiano(ptX,ptY,b)){ tocarInstrumentoPiano(b.nome); return; }
-                }
-                let escolhida=null;
-                // Pretas primeiro para preservar a sensação de teclado real.
-                for(const t of teclasPiano.filter(t=>!t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
-                if(!escolhida) for(const t of teclasPiano.filter(t=>t.branca)) if(pontoNaTeclaPiano(ptX,ptY,t)){escolhida=t;break;}
-                if(escolhida) ativarTeclaPiano(escolhida);
+                processarAlvoPiano(ptX, ptY, e.pointerId);
             } else if (jogoAtual === 'instrumentos') {
-                for (let i = sonsMagicos.length - 1; i >= 0; i--) {
-                    if (pontoNoSomMagico(ptX, ptY, sonsMagicos[i])) {
-                        ativarSomMagico(i);
-                        break;
-                    }
-                }
+                processarAlvoSomMagico(ptX, ptY, e.pointerId);
             } else if (jogoAtual === 'aquario') {
-                tocarAquario(ptX, ptY);
+                processarAlvoAquarioPorArrasto(ptX, ptY, e.pointerId, true);
             } else if (jogoAtual === 'encaixe') {
                 iniciarAudio();
                 if (emTransicaoEncaixe || !pecasEncaixe.length) return;
@@ -1804,6 +1943,10 @@
                     pecaArrastadaEncaixe = peca;
                     pecaPaiEncaixe = peca;
                     ponteiroArrastoEncaixe = e.pointerId;
+                    offsetArrastoEncaixeX = 0;
+                    offsetArrastoEncaixeY = 0;
+                    referenciaArrastoEncaixeX = ptX;
+                    referenciaArrastoEncaixeY = ptY;
                     return;
                 }
 
@@ -1833,10 +1976,57 @@
 
             if (jogoAtual === 'pintura' && mouseBaixoPintura) {
                 adicionarPontoPintura(ptX, ptY);
-            } else if (jogoAtual === 'encaixe' && pecaArrastadaEncaixe && pecaArrastadaEncaixe.arrastando && ponteiroArrastoEncaixe === e.pointerId) {
-                if (Math.hypot(ptX-pecaArrastadaEncaixe.startX, ptY-pecaArrastadaEncaixe.startY) > 8) movimentoEncaixeIniciado = true;
-                pecaArrastadaEncaixe.x = ptX;
-                pecaArrastadaEncaixe.y = ptY;
+            } else if (jogoAtual === 'baloes' && toquesAtivos.has(e.pointerId)) {
+                // O dedo pode começar fora do balão; basta deslizar para cima dele.
+                rebentarBalaoNoPonto(ptX, ptY);
+            } else if (jogoAtual === 'escondidas' && toquesAtivos.has(e.pointerId)) {
+                processarPortaEscondidaPorArrasto(ptX, ptY, e.pointerId);
+            } else if (jogoAtual === 'piano' && toquesAtivos.has(e.pointerId) && alvoArrastoPorPonteiro.has(e.pointerId)) {
+                processarAlvoPiano(ptX, ptY, e.pointerId);
+            } else if (jogoAtual === 'instrumentos' && toquesAtivos.has(e.pointerId) && alvoArrastoPorPonteiro.has(e.pointerId)) {
+                processarAlvoSomMagico(ptX, ptY, e.pointerId);
+            } else if (jogoAtual === 'aquario' && toquesAtivos.has(e.pointerId)) {
+                processarAlvoAquarioPorArrasto(ptX, ptY, e.pointerId, false);
+            } else if (jogoAtual === 'encaixe' && toquesAtivos.has(e.pointerId)) {
+                if (pecaArrastadaEncaixe && pecaArrastadaEncaixe.arrastando && ponteiroArrastoEncaixe === e.pointerId) {
+                    if (Math.hypot(ptX-referenciaArrastoEncaixeX, ptY-referenciaArrastoEncaixeY) > 8) movimentoEncaixeIniciado = true;
+                    pecaArrastadaEncaixe.x = ptX + offsetArrastoEncaixeX;
+                    pecaArrastadaEncaixe.y = ptY + offsetArrastoEncaixeY;
+                } else if (ponteiroArrastoEncaixe === null) {
+                    // Se o dedo começa ao lado da peça, seleciona-a ao entrar no seu alvo.
+                    const pecaSobDedo = encontrarPecaNoPonto(ptX, ptY);
+                    if (pecaSobDedo) {
+                        iniciarAudio();
+                        selecionarPecaEncaixe(pecaSobDedo);
+                        pecaSobDedo.arrastando = true;
+                        pecaArrastadaEncaixe = pecaSobDedo;
+                        pecaPaiEncaixe = pecaSobDedo;
+                        ponteiroArrastoEncaixe = e.pointerId;
+                        // Ao entrar no alvo preservamos a posição da peça até o dedo
+                        // começar realmente a arrastá-la, evitando um salto inesperado.
+                        offsetArrastoEncaixeX = pecaSobDedo.x - ptX;
+                        offsetArrastoEncaixeY = pecaSobDedo.y - ptY;
+                        referenciaArrastoEncaixeX = ptX;
+                        referenciaArrastoEncaixeY = ptY;
+                        movimentoEncaixeIniciado = false;
+                    } else if (pecaSelecionadaEncaixe) {
+                        // Também permite começar fora do molde e deslizar até ele.
+                        const destino = destinoEncaixeNoPonto(ptX, ptY);
+                        const alvoId = destino ? `destino:${destino.id}` : null;
+                        if (!alvoArrastoPorPonteiro.has(e.pointerId) || alvoArrastoPorPonteiro.get(e.pointerId) !== alvoId) {
+                            alvoArrastoPorPonteiro.set(e.pointerId, alvoId);
+                            if (destino && destino.eCorreta && destino.pecaId === pecaSelecionadaEncaixe.id) {
+                                concluirEncaixe(destino, pecaSelecionadaEncaixe);
+                            } else if (destino) {
+                                const peca = pecaSelecionadaEncaixe;
+                                peca.x = peca.startX; peca.y = peca.startY;
+                                pecaSelecionadaEncaixe = null;
+                                pecaPaiEncaixe = pecasEncaixe.find(p=>!p.concluida) || null;
+                                origemSelecionadaEncaixe = false;
+                            }
+                        }
+                    }
+                }
             }
         });
 
@@ -1847,6 +2037,7 @@
                 pecaArrastadaEncaixe = null;
             }
             toquesAtivos.delete(e.pointerId);
+            alvoArrastoPorPonteiro.delete(e.pointerId);
             if (ponteiroJogoUnico === e.pointerId) ponteiroJogoUnico = null;
             mouseBaixoPintura = false;
         }
