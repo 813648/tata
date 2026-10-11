@@ -293,35 +293,35 @@
         </div>
 
         <div class="grid-apps">
-            <div class="card-app toque" data-jogo="toque" onclick="abrirJogo('toque')">
+            <div class="card-app toque" data-jogo="toque">
                 <div class="icon">✨</div>
                 <div class="nome">Toque Mágico</div>
             </div>
-            <div class="card-app pintura" data-jogo="pintura" onclick="abrirJogo('pintura')">
+            <div class="card-app pintura" data-jogo="pintura">
                 <div class="icon">🎨</div>
                 <div class="nome">Pintura Mágica</div>
             </div>
-            <div class="card-app baloes" data-jogo="baloes" onclick="abrirJogo('baloes')">
+            <div class="card-app baloes" data-jogo="baloes">
                 <div class="icon">🎈</div>
                 <div class="nome">Balões Mágicos</div>
             </div>
-            <div class="card-app escondidas" data-jogo="escondidas" onclick="abrirJogo('escondidas')">
+            <div class="card-app escondidas" data-jogo="escondidas">
                 <div class="icon">🙈</div>
                 <div class="nome">Escondidas Mágicas</div>
             </div>
-            <div class="card-app encaixe" data-jogo="encaixe" onclick="abrirJogo('encaixe')">
+            <div class="card-app encaixe" data-jogo="encaixe">
                 <div class="icon">🧩</div>
                 <div class="nome">Encaixe Mágico</div>
             </div>
-            <div class="card-app instrumentos" data-jogo="instrumentos" onclick="abrirJogo('instrumentos')">
+            <div class="card-app instrumentos" data-jogo="instrumentos">
                 <div class="icon">🎵</div>
                 <div class="nome">Sons Mágicos</div>
             </div>
-            <div class="card-app aquario" data-jogo="aquario" onclick="abrirJogo('aquario')">
+            <div class="card-app aquario" data-jogo="aquario">
                 <div class="icon">🐠</div>
                 <div class="nome">Aquário Mágico</div>
             </div>
-            <div class="card-app piano" data-jogo="piano" onclick="abrirJogo('piano')">
+            <div class="card-app piano" data-jogo="piano">
                 <div class="icon">🎹</div>
                 <div class="nome">Piano Mágico</div>
             </div>
@@ -582,7 +582,7 @@
         let offsetArrastoEncaixeX = 0, offsetArrastoEncaixeY = 0;
         let referenciaArrastoEncaixeX = 0, referenciaArrastoEncaixeY = 0;
         const MAX_NIVEIS_ENCAIXE = 30;
-        const VERSAO_PORTAL = 'v23';
+        const VERSAO_PORTAL = 'v24';
         const elVersaoPortal = document.getElementById('versaoPortal');
         if (elVersaoPortal) elVersaoPortal.textContent = VERSAO_PORTAL;
 
@@ -1510,6 +1510,11 @@
         let audiosSonsMagicos = [];
         let ultimoSomMagico = -1;
         let ultimoArranjoPosicoesSons = '';
+        let somMagicoEmCurso = false;
+        let somMagicoBloqueado = false;
+        let itemSomMagicoAtual = null;
+        let timerSomMagico = null;
+        let tokenReproducaoSomMagico = 0;
 
         function reconfigurarInstrumentos() {
             const portrait = altura > largura;
@@ -1569,6 +1574,9 @@
         }
 
         function processarAlvoSomMagico(x, y, pointerId) {
+            // Enquanto um som toca (e durante a curta recuperação visual), não
+            // iniciamos outro nem marcamos novos alvos como já visitados.
+            if (somMagicoBloqueado) return;
             const indice = indiceSomMagicoNoPonto(x, y);
             const novoId = indice >= 0 ? `som:${indice}` : null;
             if (!alvoArrastoPorPonteiro.has(pointerId) || alvoArrastoPorPonteiro.get(pointerId) !== novoId) {
@@ -1577,11 +1585,23 @@
             }
         }
 
-        function tocarAudioSomMagico(i) {
+        function tocarAudioSomMagico(i, aoTerminar) {
             const a = audiosSonsMagicos[i];
-            if (!a) return;
-            try { a.currentTime = 0; const r = a.play(); if (r && r.catch) r.catch(()=>{}); }
-            catch(e) {}
+            if (!a) { aoTerminar(); return; }
+            const terminarUmaVez = () => aoTerminar();
+            a.addEventListener('ended', terminarUmaVez, { once: true });
+            try {
+                a.currentTime = 0;
+                const r = a.play();
+                if (r && typeof r.catch === 'function') r.catch(terminarUmaVez);
+                // Proteção se um ficheiro falhar sem disparar 'ended'. Usa a
+                // duração real quando conhecida e um limite seguro caso contrário.
+                const duracaoConhecida = Number.isFinite(a.duration) && a.duration > 0;
+                const limite = duracaoConhecida ? Math.min(12000, Math.max(3000, a.duration * 1000 + 1200)) : 6500;
+                timerSomMagico = setTimeout(terminarUmaVez, limite);
+            } catch (e) {
+                terminarUmaVez();
+            }
         }
 
         function criarParticulasSomMagico(x,y) {
@@ -1592,12 +1612,33 @@
         }
 
         function ativarSomMagico(i) {
-            const item=sonsMagicos[i]; if(!item) return;
+            const item = sonsMagicos[i];
+            if (!item || somMagicoBloqueado) return;
             iniciarAudio();
-            item.pulso=1; item.brilho=1; item.rotacao=(Math.random()-.5)*0.08;
-            ultimoSomMagico=i;
-            tocarAudioSomMagico(i);
-            criarParticulasSomMagico(item.x,item.y);
+            somMagicoBloqueado = true;
+            somMagicoEmCurso = true;
+            itemSomMagicoAtual = item;
+            item.pulso = 0.05;
+            item.brilho = 0.45;
+            item.rotacao = (Math.random() - 0.5) * 0.08;
+            ultimoSomMagico = i;
+            criarParticulasSomMagico(item.x, item.y);
+
+            const token = ++tokenReproducaoSomMagico;
+            let finalizado = false;
+            const terminar = () => {
+                if (finalizado || token !== tokenReproducaoSomMagico) return;
+                finalizado = true;
+                if (timerSomMagico) clearTimeout(timerSomMagico);
+                timerSomMagico = setTimeout(() => {
+                    if (token !== tokenReproducaoSomMagico) return;
+                    somMagicoEmCurso = false;
+                    somMagicoBloqueado = false;
+                    itemSomMagicoAtual = null;
+                    timerSomMagico = null;
+                }, 280);
+            };
+            tocarAudioSomMagico(i, terminar);
         }
 
         function desenharSomMagico(item,i) {
@@ -1606,7 +1647,7 @@
             const pulso = Math.max(0, item.pulso || 0);
             const lado = Math.min(item.w * 0.76, item.h * 0.72);
             const salto = pulso * Math.min(item.h * 0.065, 18);
-            const escala = 1 + pulso * 0.055;
+            const escala = 1 + pulso * 0.12;
             const angulo = (item.rotacao || 0) * pulso;
 
             ctx.save();
@@ -1861,31 +1902,54 @@
         const JOGOS_TOQUE_UNICO = new Set(['escondidas','instrumentos','aquario','baloes']);
         let ponteiroJogoUnico = null;
 
-        // No ecrã inicial, um gesto que começa no espaço vazio e desliza para
-        // um cartão abre esse jogo. Um toque que começa num cartão continua a
-        // usar o clique habitual, evitando ativações duplicadas.
+        // O menu usa Pointer Events em vez de depender apenas do evento click.
+        // Isto mantém os cartões responsivos em toques prolongados e permite
+        // começar num espaço vazio e deslizar até ao jogo pretendido.
         const arrastosMenu = new Map();
+        portalHome.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('pointerdown', (e) => {
             if (jogoAtual || !portalHome.contains(e.target)) return;
-            const cartaoInicial = e.target.closest ? e.target.closest('.card-app') : null;
+            const cartaoInicial = e.target.closest ? e.target.closest('.card-app[data-jogo]') : null;
             arrastosMenu.set(e.pointerId, {
                 x: e.clientX, y: e.clientY,
-                iniciouEmCartao: !!cartaoInicial
+                jogoInicial: cartaoInicial ? cartaoInicial.dataset.jogo : null,
+                moveu: false,
+                ativado: false
             });
         }, true);
         document.addEventListener('pointermove', (e) => {
             const inicio = arrastosMenu.get(e.pointerId);
-            if (!inicio || jogoAtual || inicio.iniciouEmCartao) return;
-            if (Math.hypot(e.clientX - inicio.x, e.clientY - inicio.y) < 6) return;
+            if (!inicio || jogoAtual) return;
+            if (Math.hypot(e.clientX - inicio.x, e.clientY - inicio.y) >= 8) inicio.moveu = true;
+            if (!inicio.moveu) return;
             const sobDedo = document.elementFromPoint(e.clientX, e.clientY);
             const cartao = sobDedo && sobDedo.closest ? sobDedo.closest('.card-app[data-jogo]') : null;
-            if (cartao) {
+            if (cartao && (!inicio.jogoInicial || cartao.dataset.jogo !== inicio.jogoInicial)) {
+                inicio.ativado = true;
                 arrastosMenu.delete(e.pointerId);
                 abrirJogo(cartao.dataset.jogo);
             }
         }, true);
-        document.addEventListener('pointerup', e => arrastosMenu.delete(e.pointerId), true);
-        document.addEventListener('pointercancel', e => arrastosMenu.delete(e.pointerId), true);
+        document.addEventListener('pointerup', e => {
+            const inicio = arrastosMenu.get(e.pointerId);
+            arrastosMenu.delete(e.pointerId);
+            if (!inicio || jogoAtual) return;
+            const sobDedo = document.elementFromPoint(e.clientX, e.clientY);
+            const cartaoFinal = sobDedo && sobDedo.closest ? sobDedo.closest('.card-app[data-jogo]') : null;
+            // Sem movimento: um toque curto ou prolongado no cartão inicial ativa-o.
+            if (!inicio.moveu && inicio.jogoInicial) {
+                abrirJogo(inicio.jogoInicial);
+            } else if (cartaoFinal) {
+                abrirJogo(cartaoFinal.dataset.jogo);
+            }
+        }, true);
+        document.addEventListener('pointercancel', e => {
+            const inicio = arrastosMenu.get(e.pointerId);
+            arrastosMenu.delete(e.pointerId);
+            // Alguns navegadores cancelam o ponteiro no toque longo; se começou
+            // num cartão, ainda honramos a intenção de o selecionar.
+            if (inicio && !jogoAtual && inicio.jogoInicial && !inicio.moveu) abrirJogo(inicio.jogoInicial);
+        }, true);
 
         function rebentarBalaoNoPonto(x, y) {
             let escolhido = null;
@@ -2728,7 +2792,17 @@
                     if(p.vida<=0)particulasSonsMagicos.splice(i,1);
                 }
                 sonsMagicos.forEach((item,i)=>{
-                    item.pulso*=0.84; item.brilho*=0.90; item.rotacao*=0.86;
+                    if (somMagicoEmCurso && item === itemSomMagicoAtual) {
+                        // Cresce suavemente, mantém-se aumentado durante o som e
+                        // regressa ao tamanho original quando a reprodução termina.
+                        item.pulso = Math.min(1, item.pulso + 0.12);
+                        item.brilho = Math.min(1, item.brilho + 0.10);
+                        item.rotacao *= 0.92;
+                    } else {
+                        item.pulso *= 0.84;
+                        item.brilho *= 0.90;
+                        item.rotacao *= 0.86;
+                    }
                     desenharSomMagico(item,i);
                 });
 
