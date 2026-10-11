@@ -59,6 +59,25 @@
             text-shadow: 0 1px 2px rgba(0,0,0,0.45);
         }
 
+        #btnAtualizarPortal {
+            display: none;
+            position: fixed;
+            z-index: 300;
+            left: 50%;
+            bottom: 14px;
+            transform: translateX(-50%);
+            padding: 9px 15px;
+            border: 1px solid rgba(255,255,255,.68);
+            border-radius: 22px;
+            background: linear-gradient(180deg, #FFE082, #FFB300);
+            color: #402900;
+            font: bold 13px/1.2 sans-serif;
+            box-shadow: 0 4px 16px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.75);
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        #btnAtualizarPortal:active { transform: translateX(-50%) scale(.96); }
+
         /* Botão Voltar ao Portal (Apenas a casinha) */
         #btnVoltar {
             position: absolute;
@@ -308,6 +327,7 @@
     </div>
 
     <div id="versaoPortal"></div>
+    <button id="btnAtualizarPortal" type="button" aria-label="Atualizar Portal Mágico">✨ Atualização pronta — atualizar</button>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -352,6 +372,9 @@
         }
 
         function abrirJogo(nomeJogo) {
+            if (typeof cancelarTimerAtualizacaoPortal === 'function') cancelarTimerAtualizacaoPortal();
+            const botaoAtualizacao = document.getElementById('btnAtualizarPortal');
+            if (botaoAtualizacao) botaoAtualizacao.style.display = 'none';
             ponteiroJogoUnico = null;
             if (typeof arrastosMenu !== 'undefined') arrastosMenu.clear();
             iniciarAudio();
@@ -371,6 +394,7 @@
             jogoAtual = null;
             portalHome.style.display = 'flex';
             btnVoltar.style.display = 'none';
+            if (typeof processarAtualizacaoPortal === 'function') processarAtualizacaoPortal();
         });
 
         /* =================================================================
@@ -556,7 +580,7 @@
         let offsetArrastoEncaixeX = 0, offsetArrastoEncaixeY = 0;
         let referenciaArrastoEncaixeX = 0, referenciaArrastoEncaixeY = 0;
         const MAX_NIVEIS_ENCAIXE = 30;
-        const VERSAO_PORTAL = 'v21';
+        const VERSAO_PORTAL = 'v22';
         const elVersaoPortal = document.getElementById('versaoPortal');
         if (elVersaoPortal) elVersaoPortal.textContent = VERSAO_PORTAL;
 
@@ -1368,6 +1392,8 @@
 
         function tocarInstrumentoPiano(nome){
             instrumentoPianoAtual=nome;
+            const botao = botoesInstrumentoPiano.find(b => b.nome === nome);
+            if (botao) botao.pulso = 1;
             tocarNotaPiano({freq:392,nome:'Sol',glyph:'♪'});
         }
 
@@ -1385,34 +1411,65 @@
             ctx.beginPath(); ctx.roundRect(largura*.035,altura*.15,largura*.93,altura*.72,base*.025); ctx.fill();
             ctx.shadowBlur=0;
             ctx.fillStyle='rgba(255,214,102,.18)'; ctx.beginPath(); ctx.roundRect(largura*.055,altura*.17,largura*.89,altura*.06,base*.015); ctx.fill();
-            // Selector mágico de timbres — no lugar dos tubos de órgão
+            // Selector mágico de timbres com relevo suave e pequeno ressalto ao tocar.
             botoesInstrumentoPiano.forEach((b,i)=>{
                 const ativo=b.nome===instrumentoPianoAtual;
-                ctx.fillStyle=ativo?'#FFE082':'rgba(255,255,255,.92)';
-                ctx.strokeStyle=ativo?'#FF8F00':'rgba(92,67,54,.55)';
-                ctx.lineWidth=ativo?3:1.5;
-                ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,base*.012); ctx.fill(); ctx.stroke();
+                b.pulso=(b.pulso||0)*.78;
+                const dy=(b.pulso||0)*-2.2;
+                const bx=b.x, by=b.y+dy, bh=b.h;
+                ctx.save();
+                ctx.shadowColor=ativo?'rgba(255,183,0,.38)':'rgba(0,0,0,.28)';
+                ctx.shadowBlur=ativo?10:6;
+                ctx.shadowOffsetY=ativo?2:4;
+                const grad=ctx.createLinearGradient(bx,by,bx,by+bh);
+                if(ativo){grad.addColorStop(0,'#FFF4C2');grad.addColorStop(.48,'#FFE082');grad.addColorStop(1,'#FFB74D');}
+                else {grad.addColorStop(0,'#FFFFFF');grad.addColorStop(.55,'#F3E9DD');grad.addColorStop(1,'#C8B8A8');}
+                ctx.fillStyle=grad;
+                ctx.strokeStyle=ativo?'#FF8F00':'rgba(92,67,54,.62)';
+                ctx.lineWidth=ativo?2.5:1.5;
+                ctx.beginPath(); ctx.roundRect(bx,by,b.w,bh,base*.012); ctx.fill(); ctx.stroke();
+                ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+                ctx.fillStyle='rgba(255,255,255,.45)';
+                ctx.beginPath();ctx.roundRect(bx+b.w*.06,by+2,b.w*.88,Math.max(2,bh*.20),base*.008);ctx.fill();
                 ctx.fillStyle=ativo?'#6D3B00':'#4E4038';
                 ctx.font=`bold ${Math.max(10,Math.min(16,base*.024))}px sans-serif`;
                 ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.fillText(b.nome,b.x+b.w/2,b.y+b.h/2);
-                if(ativo){ctx.fillStyle='#FF9800';ctx.beginPath();ctx.arc(b.x+b.w*.12,b.y+b.h/2,base*.008,0,Math.PI*2);ctx.fill();}
+                ctx.fillText(b.nome,bx+b.w/2,by+bh/2+1);
+                if(ativo){ctx.fillStyle='#FF9800';ctx.beginPath();ctx.arc(bx+b.w*.12,by+bh/2,base*.008,0,Math.PI*2);ctx.fill();}
+                ctx.restore();
             });
             ctx.textBaseline='alphabetic';
-            // Teclas brancas
+            // Teclas brancas: topo acetinado, sombra lateral e ligeira descida ao tocar.
             teclasPiano.filter(t=>t.branca).forEach((t,i)=>{
-                const p=t.pressionada;
-                ctx.fillStyle=p?'#FFF3B0':'#FFFDF5'; ctx.strokeStyle='#B0A79A'; ctx.lineWidth=2;
-                ctx.beginPath(); ctx.roundRect(t.x+1,t.y,t.w-2,t.h,base*.012); ctx.fill(); ctx.stroke();
-                ctx.fillStyle='rgba(80,70,60,.75)'; ctx.font=`bold ${Math.max(15,base*.035)}px sans-serif`; ctx.textAlign='center';
+                const p=t.pressionada||0, dy=p*3.2;
+                ctx.save();
+                ctx.shadowColor=p?'rgba(255,193,7,.22)':'rgba(0,0,0,.30)';
+                ctx.shadowBlur=p?5:8; ctx.shadowOffsetY=p?1:4;
+                const grad=ctx.createLinearGradient(0,t.y+dy,0,t.y+t.h);
+                if(p){grad.addColorStop(0,'#FFF0A5');grad.addColorStop(.28,'#FFF6C8');grad.addColorStop(1,'#E8D8B0');}
+                else {grad.addColorStop(0,'#FFFFFF');grad.addColorStop(.55,'#FFFDF5');grad.addColorStop(1,'#D8D0C4');}
+                ctx.fillStyle=grad;ctx.strokeStyle=p?'#D6A329':'#B0A79A';ctx.lineWidth=2;
+                ctx.beginPath();ctx.roundRect(t.x+1,t.y+dy,t.w-2,t.h-dy,base*.012);ctx.fill();
+                ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.stroke();
+                ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillRect(t.x+t.w*.12,t.y+dy+4,t.w*.76,Math.max(2,base*.006));
+                ctx.fillStyle='rgba(80,70,60,.78)';ctx.font=`bold ${Math.max(15,base*.035)}px sans-serif`;ctx.textAlign='center';
                 ctx.fillText(t.nome.replace('♯',''),t.x+t.w/2,t.y+t.h*.91);
-                if(p){ctx.fillStyle='rgba(255,193,7,.35)';ctx.beginPath();ctx.arc(t.x+t.w/2,t.y+t.h*.35,base*.045,0,Math.PI*2);ctx.fill();}
+                if(p){ctx.fillStyle='rgba(255,193,7,.24)';ctx.beginPath();ctx.ellipse(t.x+t.w/2,t.y+t.h*.35,t.w*.24,t.h*.05,0,0,Math.PI*2);ctx.fill();}
+                ctx.restore();
             });
-            // Teclas pretas por cima
+            // Teclas pretas por cima: relevo escuro, reflexo no topo e descida ao tocar.
             teclasPiano.filter(t=>!t.branca).forEach(t=>{
-                const p=t.pressionada; ctx.fillStyle=p?'#6D4C41':'#25232A'; ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=8;
-                ctx.beginPath();ctx.roundRect(t.x,t.y,t.w,t.h,base*.012);ctx.fill();ctx.shadowBlur=0;
-                ctx.fillStyle='rgba(255,255,255,.75)';ctx.font=`bold ${Math.max(11,base*.025)}px sans-serif`;ctx.textAlign='center';ctx.fillText(t.nome,t.x+t.w/2,t.y+t.h*.82);
+                const p=t.pressionada||0, dy=p*2.2;
+                ctx.save();ctx.shadowColor='rgba(0,0,0,.46)';ctx.shadowBlur=p?3:8;ctx.shadowOffsetY=p?1:4;
+                const grad=ctx.createLinearGradient(0,t.y+dy,0,t.y+t.h);
+                if(p){grad.addColorStop(0,'#8D6E63');grad.addColorStop(.5,'#5D4037');grad.addColorStop(1,'#3E2723');}
+                else {grad.addColorStop(0,'#514B55');grad.addColorStop(.26,'#29262E');grad.addColorStop(1,'#111016');}
+                ctx.fillStyle=grad;ctx.strokeStyle='rgba(0,0,0,.65)';ctx.lineWidth=1.2;
+                ctx.beginPath();ctx.roundRect(t.x,t.y+dy,t.w,t.h-dy,base*.012);ctx.fill();
+                ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.stroke();
+                ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.roundRect(t.x+t.w*.12,t.y+dy+3,t.w*.76,Math.max(2,t.h*.035),base*.006);ctx.fill();
+                ctx.fillStyle='rgba(255,255,255,.82)';ctx.font=`bold ${Math.max(11,base*.025)}px sans-serif`;ctx.textAlign='center';ctx.fillText(t.nome,t.x+t.w/2,t.y+t.h*.82);
+                ctx.restore();
             });
             ctx.restore();
             // Notas mágicas
@@ -1532,17 +1589,34 @@
         }
 
         function desenharSomMagico(item,i) {
-            const p=1+item.pulso*0.055;
+            // Pequeno efeito de mola: o cartão eleva-se e aumenta ao ativar o som.
+            const pulso=item.pulso||0;
+            const escala=1+pulso*.055;
+            const levitar=pulso*5;
             ctx.save();
-            ctx.translate(item.x,item.y);
-            ctx.rotate(item.rotacao*item.pulso);
-            ctx.scale(p,p);
-            const r=Math.min(item.w,item.h)*0.10;
-            ctx.shadowBlur=20;
-            ctx.shadowColor='rgba(255,255,255,.35)';
-            ctx.fillStyle='rgba(255,255,255,.10)';
-            ctx.beginPath(); ctx.roundRect(-item.w*.47,-item.h*.45,item.w*.94,item.h*.90,r); ctx.fill();
-            ctx.shadowBlur=0;
+            ctx.translate(item.x,item.y-levitar);
+            ctx.rotate(item.rotacao*pulso);
+            ctx.scale(escala,escala);
+            const x=-item.w*.47, y=-item.h*.45, w=item.w*.94, h=item.h*.90;
+            const r=Math.min(item.w,item.h)*.10;
+            ctx.shadowColor=item.brilho>.05?'rgba(190,225,255,.70)':'rgba(0,0,0,.28)';
+            ctx.shadowBlur=10+item.brilho*9;
+            ctx.shadowOffsetY=3+pulso*2;
+            const grad=ctx.createLinearGradient(0,y,0,y+h);
+            grad.addColorStop(0,'rgba(255,255,255,.96)');
+            grad.addColorStop(.42,'rgba(232,240,255,.82)');
+            grad.addColorStop(1,'rgba(164,184,224,.70)');
+            ctx.fillStyle=grad;
+            ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();
+            ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+            ctx.strokeStyle=item.brilho>.08?'rgba(255,255,255,.98)':'rgba(255,255,255,.42)';
+            ctx.lineWidth=Math.max(1.5,Math.min(item.w,item.h)*.014);
+            ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.stroke();
+            // Reflexo superior e sombra inferior para sugerir uma peça tátil em relevo.
+            ctx.fillStyle='rgba(255,255,255,.44)';
+            ctx.beginPath();ctx.roundRect(x+w*.07,y+h*.035,w*.86,h*.10,r*.55);ctx.fill();
+            ctx.fillStyle='rgba(70,83,125,.12)';
+            ctx.beginPath();ctx.roundRect(x+w*.07,y+h*.89,w*.86,h*.045,r*.35);ctx.fill();
             const img=IMAGENS_SONS_MAGICOS[i];
             const lado=Math.min(item.w*.76,item.h*.72);
             if(img && img.complete && img.naturalWidth){
@@ -1553,9 +1627,10 @@
                 ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('✨',0,0);
             }
             if(item.brilho>0){
-                ctx.globalAlpha=item.brilho*.55;
+                ctx.globalAlpha=item.brilho*.58;
                 ctx.strokeStyle='#FFFFFF';ctx.lineWidth=Math.max(3,Math.min(item.w,item.h)*.018);
-                ctx.beginPath();ctx.arc(0,0,lado*.56,0,Math.PI*2);ctx.stroke();
+                ctx.shadowColor='#DDEBFF';ctx.shadowBlur=12;
+                ctx.beginPath();ctx.roundRect(x-2,y-2,w+4,h+4,r+2);ctx.stroke();
             }
             ctx.restore();
         }
@@ -2751,9 +2826,98 @@
         requestAnimationFrame(loop);
     </script>
 <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
-        }
+        // Atualizações controladas do Portal: descarrega em fundo e só recarrega
+        // automaticamente quando regressamos ao ecrã inicial.
+        (() => {
+            if (!('serviceWorker' in navigator)) return;
+            const btn = document.getElementById('btnAtualizarPortal');
+            let registo = null;
+            let atualizacaoPendente = false;
+            let timerAplicacao = null;
+            let controladorJaExistia = !!navigator.serviceWorker.controller;
+            let recargaEmCurso = false;
+
+            window.cancelarTimerAtualizacaoPortal = function() {
+                if (timerAplicacao) clearTimeout(timerAplicacao);
+                timerAplicacao = null;
+            };
+
+            function ocultarBotao() {
+                if (btn) btn.style.display = 'none';
+            }
+
+            function aplicarAgora() {
+                if (jogoAtual !== null) return;
+                window.cancelarTimerAtualizacaoPortal();
+                if (btn) { btn.textContent = '✨ A atualizar…'; btn.style.display = 'block'; }
+                if (registo && registo.waiting) {
+                    registo.waiting.postMessage({ tipo: 'ATIVAR_ATUALIZACAO' });
+                    return;
+                }
+                if (!recargaEmCurso) {
+                    recargaEmCurso = true;
+                    setTimeout(() => window.location.reload(), 220);
+                }
+            }
+
+            window.processarAtualizacaoPortal = function() {
+                if (!atualizacaoPendente || jogoAtual !== null) return;
+                if (btn) {
+                    btn.textContent = '✨ Nova versão pronta — atualizar';
+                    btn.style.display = 'block';
+                }
+                window.cancelarTimerAtualizacaoPortal();
+                // A atualização automática espera brevemente para não interferir
+                // com a escolha do próximo jogo. Se entrar num jogo, o timer é cancelado.
+                timerAplicacao = setTimeout(() => {
+                    if (jogoAtual === null && atualizacaoPendente) aplicarAgora();
+                }, 1800);
+            };
+
+            if (btn) btn.addEventListener('click', aplicarAgora);
+
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                // Ignora a primeira tomada de controlo, que não é uma atualização.
+                if (!controladorJaExistia) {
+                    controladorJaExistia = true;
+                    return;
+                }
+                atualizacaoPendente = true;
+                if (jogoAtual === null) window.processarAtualizacaoPortal();
+                else ocultarBotao();
+            });
+
+            window.addEventListener('load', async () => {
+                try {
+                    registo = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+                    registo.addEventListener('updatefound', () => {
+                        const novo = registo.installing;
+                        if (!novo) return;
+                        novo.addEventListener('statechange', () => {
+                            if (novo.state === 'installed' && navigator.serviceWorker.controller) {
+                                atualizacaoPendente = true;
+                                if (jogoAtual === null) window.processarAtualizacaoPortal();
+                            }
+                        });
+                    });
+                    if (registo.waiting && navigator.serviceWorker.controller) {
+                        atualizacaoPendente = true;
+                        if (jogoAtual === null) window.processarAtualizacaoPortal();
+                    }
+                    // Solicita uma verificação explícita em cada abertura online.
+                    if (navigator.onLine && typeof registo.update === 'function') {
+                        registo.update().catch(() => {});
+                    }
+                } catch (e) {
+                    // Se estiver offline ou o navegador bloquear a verificação,
+                    // o Portal continua a funcionar com a versão já instalada.
+                }
+            });
+
+            window.addEventListener('online', () => {
+                if (registo && typeof registo.update === 'function') registo.update().catch(() => {});
+            });
+        })();
     </script>
 </body>
 </html>

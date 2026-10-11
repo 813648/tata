@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portal-magico-tata-v21';
+const CACHE_NAME = 'portal-magico-tata-v22';
 const APP_SHELL = [
   './',
   './index.html',
@@ -7,18 +7,37 @@ const APP_SHELL = [
   './icone-192.png',
   './icone-512.png'
 ];
+
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
+  );
 });
+
 self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))).then(() => self.clients.claim()));
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
 });
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.tipo === 'ATIVAR_ATUALIZACAO') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
     caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+      if (response && response.ok && new URL(event.request.url).origin === self.location.origin) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+      }
       return response;
     }).catch(() => caches.match('./index.html')))
   );
