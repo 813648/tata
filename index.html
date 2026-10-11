@@ -194,6 +194,10 @@
         }
 
         .card-app {
+            -webkit-touch-callout: none;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
             width: 100%;
             height: 100%;
             aspect-ratio: 1 / 1;
@@ -214,9 +218,7 @@
             text-align: center;
         }
 
-        .card-app:active {
-            transform: scale(0.93);
-        }
+        /* Sem efeito visual de pressão prolongada nos cartões do ecrã inicial. */
 
         .card-app.toque { border-color: #3380FF; box-shadow: 0 4px 15px rgba(51, 128, 255, 0.25); }
         .card-app.pintura { border-color: #FFE680; box-shadow: 0 4px 15px rgba(255, 230, 128, 0.25); }
@@ -580,7 +582,7 @@
         let offsetArrastoEncaixeX = 0, offsetArrastoEncaixeY = 0;
         let referenciaArrastoEncaixeX = 0, referenciaArrastoEncaixeY = 0;
         const MAX_NIVEIS_ENCAIXE = 30;
-        const VERSAO_PORTAL = 'v22';
+        const VERSAO_PORTAL = 'v23';
         const elVersaoPortal = document.getElementById('versaoPortal');
         if (elVersaoPortal) elVersaoPortal.textContent = VERSAO_PORTAL;
 
@@ -1452,6 +1454,11 @@
                 ctx.beginPath();ctx.roundRect(t.x+1,t.y+dy,t.w-2,t.h-dy,base*.012);ctx.fill();
                 ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.stroke();
                 ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillRect(t.x+t.w*.12,t.y+dy+4,t.w*.76,Math.max(2,base*.006));
+                // Reflexo discreto na base, a repetir o acabamento luminoso do topo.
+                ctx.fillStyle='rgba(255,255,255,.34)';
+                ctx.fillRect(t.x+t.w*.12,t.y+dy+t.h*.958,t.w*.76,Math.max(2,base*.005));
+                ctx.fillStyle='rgba(80,70,60,.12)';
+                ctx.fillRect(t.x+t.w*.08,t.y+dy+t.h*.985,t.w*.84,Math.max(1,base*.003));
                 ctx.fillStyle='rgba(80,70,60,.78)';ctx.font=`bold ${Math.max(15,base*.035)}px sans-serif`;ctx.textAlign='center';
                 ctx.fillText(t.nome.replace('♯',''),t.x+t.w/2,t.y+t.h*.91);
                 if(p){ctx.fillStyle='rgba(255,193,7,.24)';ctx.beginPath();ctx.ellipse(t.x+t.w/2,t.y+t.h*.35,t.w*.24,t.h*.05,0,0,Math.PI*2);ctx.fill();}
@@ -1468,6 +1475,11 @@
                 ctx.beginPath();ctx.roundRect(t.x,t.y+dy,t.w,t.h-dy,base*.012);ctx.fill();
                 ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.stroke();
                 ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.roundRect(t.x+t.w*.12,t.y+dy+3,t.w*.76,Math.max(2,t.h*.035),base*.006);ctx.fill();
+                // Um segundo reflexo junto à base dá continuidade ao relevo da tecla.
+                ctx.fillStyle='rgba(255,255,255,.16)';
+                ctx.beginPath();ctx.roundRect(t.x+t.w*.12,t.y+dy+t.h*.925,t.w*.76,Math.max(2,t.h*.025),base*.005);ctx.fill();
+                ctx.fillStyle='rgba(0,0,0,.25)';
+                ctx.fillRect(t.x+t.w*.08,t.y+dy+t.h*.985,t.w*.84,Math.max(1,base*.003));
                 ctx.fillStyle='rgba(255,255,255,.82)';ctx.font=`bold ${Math.max(11,base*.025)}px sans-serif`;ctx.textAlign='center';ctx.fillText(t.nome,t.x+t.w/2,t.y+t.h*.82);
                 ctx.restore();
             });
@@ -1589,48 +1601,40 @@
         }
 
         function desenharSomMagico(item,i) {
-            // Pequeno efeito de mola: o cartão eleva-se e aumenta ao ativar o som.
-            const pulso=item.pulso||0;
-            const escala=1+pulso*.055;
-            const levitar=pulso*5;
+            // O ícone mantém o aspeto simples anterior: só o animal/objeto se move
+            // brevemente quando o respetivo som é reproduzido.
+            const pulso = Math.max(0, item.pulso || 0);
+            const lado = Math.min(item.w * 0.76, item.h * 0.72);
+            const salto = pulso * Math.min(item.h * 0.065, 18);
+            const escala = 1 + pulso * 0.055;
+            const angulo = (item.rotacao || 0) * pulso;
+
             ctx.save();
-            ctx.translate(item.x,item.y-levitar);
-            ctx.rotate(item.rotacao*pulso);
-            ctx.scale(escala,escala);
-            const x=-item.w*.47, y=-item.h*.45, w=item.w*.94, h=item.h*.90;
-            const r=Math.min(item.w,item.h)*.10;
-            ctx.shadowColor=item.brilho>.05?'rgba(190,225,255,.70)':'rgba(0,0,0,.28)';
-            ctx.shadowBlur=10+item.brilho*9;
-            ctx.shadowOffsetY=3+pulso*2;
-            const grad=ctx.createLinearGradient(0,y,0,y+h);
-            grad.addColorStop(0,'rgba(255,255,255,.96)');
-            grad.addColorStop(.42,'rgba(232,240,255,.82)');
-            grad.addColorStop(1,'rgba(164,184,224,.70)');
-            ctx.fillStyle=grad;
-            ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();
-            ctx.shadowBlur=0;ctx.shadowOffsetY=0;
-            ctx.strokeStyle=item.brilho>.08?'rgba(255,255,255,.98)':'rgba(255,255,255,.42)';
-            ctx.lineWidth=Math.max(1.5,Math.min(item.w,item.h)*.014);
-            ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.stroke();
-            // Reflexo superior e sombra inferior para sugerir uma peça tátil em relevo.
-            ctx.fillStyle='rgba(255,255,255,.44)';
-            ctx.beginPath();ctx.roundRect(x+w*.07,y+h*.035,w*.86,h*.10,r*.55);ctx.fill();
-            ctx.fillStyle='rgba(70,83,125,.12)';
-            ctx.beginPath();ctx.roundRect(x+w*.07,y+h*.89,w*.86,h*.045,r*.35);ctx.fill();
-            const img=IMAGENS_SONS_MAGICOS[i];
-            const lado=Math.min(item.w*.76,item.h*.72);
-            if(img && img.complete && img.naturalWidth){
-                ctx.imageSmoothingEnabled=true;
-                ctx.drawImage(img,-lado/2,-lado/2,lado,lado);
+            ctx.translate(item.x, item.y - salto);
+            ctx.rotate(angulo);
+            ctx.scale(escala, escala);
+
+            const img = IMAGENS_SONS_MAGICOS[i];
+            if (img && img.complete && img.naturalWidth) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.drawImage(img, -lado / 2, -lado / 2, lado, lado);
             } else {
-                ctx.font=`${Math.min(item.w,item.h)*.34}px sans-serif`;
-                ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('✨',0,0);
+                ctx.font = `${Math.min(item.w, item.h) * 0.34}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('✨', 0, 0);
             }
-            if(item.brilho>0){
-                ctx.globalAlpha=item.brilho*.58;
-                ctx.strokeStyle='#FFFFFF';ctx.lineWidth=Math.max(3,Math.min(item.w,item.h)*.018);
-                ctx.shadowColor='#DDEBFF';ctx.shadowBlur=12;
-                ctx.beginPath();ctx.roundRect(x-2,y-2,w+4,h+4,r+2);ctx.stroke();
+
+            // Um brilho circular muito discreto acompanha o movimento, sem criar um botão.
+            if (item.brilho > 0.04) {
+                ctx.globalAlpha = item.brilho * 0.42;
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = Math.max(2, Math.min(item.w, item.h) * 0.012);
+                ctx.shadowColor = '#DDEBFF';
+                ctx.shadowBlur = 8 * item.brilho;
+                ctx.beginPath();
+                ctx.arc(0, 0, lado * (0.53 + (1 - pulso) * 0.025), 0, Math.PI * 2);
+                ctx.stroke();
             }
             ctx.restore();
         }
