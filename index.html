@@ -582,7 +582,7 @@
         let offsetArrastoEncaixeX = 0, offsetArrastoEncaixeY = 0;
         let referenciaArrastoEncaixeX = 0, referenciaArrastoEncaixeY = 0;
         const MAX_NIVEIS_ENCAIXE = 30;
-        const VERSAO_PORTAL = 'v24';
+        const VERSAO_PORTAL = 'v25';
         const elVersaoPortal = document.getElementById('versaoPortal');
         if (elVersaoPortal) elVersaoPortal.textContent = VERSAO_PORTAL;
 
@@ -1447,40 +1447,34 @@
                 ctx.save();
                 ctx.shadowColor=p?'rgba(255,193,7,.22)':'rgba(0,0,0,.30)';
                 ctx.shadowBlur=p?5:8; ctx.shadowOffsetY=p?1:4;
-                const grad=ctx.createLinearGradient(0,t.y+dy,0,t.y+t.h);
+                const grad=ctx.createLinearGradient(0,t.y+dy,0,t.y+t.h+dy);
                 if(p){grad.addColorStop(0,'#FFF0A5');grad.addColorStop(.28,'#FFF6C8');grad.addColorStop(1,'#E8D8B0');}
                 else {grad.addColorStop(0,'#FFFFFF');grad.addColorStop(.55,'#FFFDF5');grad.addColorStop(1,'#D8D0C4');}
                 ctx.fillStyle=grad;ctx.strokeStyle=p?'#D6A329':'#B0A79A';ctx.lineWidth=2;
-                ctx.beginPath();ctx.roundRect(t.x+1,t.y+dy,t.w-2,t.h-dy,base*.012);ctx.fill();
+                // A tecla inteira desloca-se para baixo, mantendo a sua altura.
+                ctx.beginPath();ctx.roundRect(t.x+1,t.y+dy,t.w-2,t.h,base*.012);ctx.fill();
                 ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.stroke();
                 ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillRect(t.x+t.w*.12,t.y+dy+4,t.w*.76,Math.max(2,base*.006));
-                // Reflexo discreto na base, a repetir o acabamento luminoso do topo.
-                ctx.fillStyle='rgba(255,255,255,.34)';
-                ctx.fillRect(t.x+t.w*.12,t.y+dy+t.h*.958,t.w*.76,Math.max(2,base*.005));
-                ctx.fillStyle='rgba(80,70,60,.12)';
-                ctx.fillRect(t.x+t.w*.08,t.y+dy+t.h*.985,t.w*.84,Math.max(1,base*.003));
+                // O sombreado natural do gradiente substitui as pequenas barras na base.
                 ctx.fillStyle='rgba(80,70,60,.78)';ctx.font=`bold ${Math.max(15,base*.035)}px sans-serif`;ctx.textAlign='center';
-                ctx.fillText(t.nome.replace('♯',''),t.x+t.w/2,t.y+t.h*.91);
-                if(p){ctx.fillStyle='rgba(255,193,7,.24)';ctx.beginPath();ctx.ellipse(t.x+t.w/2,t.y+t.h*.35,t.w*.24,t.h*.05,0,0,Math.PI*2);ctx.fill();}
+                ctx.fillText(t.nome.replace('♯',''),t.x+t.w/2,t.y+dy+t.h*.91);
+                if(p){ctx.fillStyle='rgba(255,193,7,.24)';ctx.beginPath();ctx.ellipse(t.x+t.w/2,t.y+dy+t.h*.35,t.w*.24,t.h*.05,0,0,Math.PI*2);ctx.fill();}
                 ctx.restore();
             });
             // Teclas pretas por cima: relevo escuro, reflexo no topo e descida ao tocar.
             teclasPiano.filter(t=>!t.branca).forEach(t=>{
                 const p=t.pressionada||0, dy=p*2.2;
                 ctx.save();ctx.shadowColor='rgba(0,0,0,.46)';ctx.shadowBlur=p?3:8;ctx.shadowOffsetY=p?1:4;
-                const grad=ctx.createLinearGradient(0,t.y+dy,0,t.y+t.h);
+                const grad=ctx.createLinearGradient(0,t.y+dy,0,t.y+t.h+dy);
                 if(p){grad.addColorStop(0,'#8D6E63');grad.addColorStop(.5,'#5D4037');grad.addColorStop(1,'#3E2723');}
                 else {grad.addColorStop(0,'#514B55');grad.addColorStop(.26,'#29262E');grad.addColorStop(1,'#111016');}
                 ctx.fillStyle=grad;ctx.strokeStyle='rgba(0,0,0,.65)';ctx.lineWidth=1.2;
-                ctx.beginPath();ctx.roundRect(t.x,t.y+dy,t.w,t.h-dy,base*.012);ctx.fill();
+                // A tecla preta também se desloca como uma peça inteira.
+                ctx.beginPath();ctx.roundRect(t.x,t.y+dy,t.w,t.h,base*.012);ctx.fill();
                 ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.stroke();
                 ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.roundRect(t.x+t.w*.12,t.y+dy+3,t.w*.76,Math.max(2,t.h*.035),base*.006);ctx.fill();
-                // Um segundo reflexo junto à base dá continuidade ao relevo da tecla.
-                ctx.fillStyle='rgba(255,255,255,.16)';
-                ctx.beginPath();ctx.roundRect(t.x+t.w*.12,t.y+dy+t.h*.925,t.w*.76,Math.max(2,t.h*.025),base*.005);ctx.fill();
-                ctx.fillStyle='rgba(0,0,0,.25)';
-                ctx.fillRect(t.x+t.w*.08,t.y+dy+t.h*.985,t.w*.84,Math.max(1,base*.003));
-                ctx.fillStyle='rgba(255,255,255,.82)';ctx.font=`bold ${Math.max(11,base*.025)}px sans-serif`;ctx.textAlign='center';ctx.fillText(t.nome,t.x+t.w/2,t.y+t.h*.82);
+                // Sem pequenas barras junto à base; o gradiente dá a profundidade.
+                ctx.fillStyle='rgba(255,255,255,.82)';ctx.font=`bold ${Math.max(11,base*.025)}px sans-serif`;ctx.textAlign='center';ctx.fillText(t.nome,t.x+t.w/2,t.y+dy+t.h*.82);
                 ctx.restore();
             });
             ctx.restore();
@@ -1655,6 +1649,21 @@
             ctx.rotate(angulo);
             ctx.scale(escala, escala);
 
+            // Auréola difusa por trás do animal: sem círculo ou contorno fechado.
+            if (item.brilho > 0.04) {
+                const raio = lado * 0.82;
+                const aura = ctx.createRadialGradient(0, 0, lado * 0.12, 0, 0, raio);
+                aura.addColorStop(0, 'rgba(255,255,255,0.52)');
+                aura.addColorStop(0.42, 'rgba(196,224,255,0.25)');
+                aura.addColorStop(1, 'rgba(196,224,255,0)');
+                ctx.globalAlpha = Math.min(0.62, item.brilho * 0.62);
+                ctx.fillStyle = aura;
+                ctx.beginPath();
+                ctx.arc(0, 0, raio, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+
             const img = IMAGENS_SONS_MAGICOS[i];
             if (img && img.complete && img.naturalWidth) {
                 ctx.imageSmoothingEnabled = true;
@@ -1664,18 +1673,6 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('✨', 0, 0);
-            }
-
-            // Um brilho circular muito discreto acompanha o movimento, sem criar um botão.
-            if (item.brilho > 0.04) {
-                ctx.globalAlpha = item.brilho * 0.42;
-                ctx.strokeStyle = '#FFFFFF';
-                ctx.lineWidth = Math.max(2, Math.min(item.w, item.h) * 0.012);
-                ctx.shadowColor = '#DDEBFF';
-                ctx.shadowBlur = 8 * item.brilho;
-                ctx.beginPath();
-                ctx.arc(0, 0, lado * (0.53 + (1 - pulso) * 0.025), 0, Math.PI * 2);
-                ctx.stroke();
             }
             ctx.restore();
         }

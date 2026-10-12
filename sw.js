@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portal-magico-tata-v24';
+const CACHE_NAME = 'portal-magico-tata-v25';
 const APP_SHELL = [
   './',
   './index.html',
